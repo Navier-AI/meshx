@@ -68,6 +68,7 @@ pub fn convert_mesh_to_vtk_format<T: Real>(mesh: &Mesh<T>) -> Result<model::Vtk,
             CellType::Hexahedron => model::CellType::Hexahedron,
             CellType::Wedge => model::CellType::Wedge,
             CellType::Quad => model::CellType::Quad,
+            CellType::Polyhedron => model::CellType::Polyhedron,
         })
         .collect();
 
@@ -84,7 +85,7 @@ pub fn convert_mesh_to_vtk_format<T: Real>(mesh: &Mesh<T>) -> Result<model::Vtk,
         .collect();
 
     Ok(model::Vtk {
-        version: model::Version::new((0, 1)),
+        version: model::Version::new(),
         title: String::from("Unstructured Mesh"),
         byte_order: model::ByteOrder::BigEndian,
         file_path: None,
@@ -96,6 +97,7 @@ pub fn convert_mesh_to_vtk_format<T: Real>(mesh: &Mesh<T>) -> Result<model::Vtk,
                     vertices,
                 },
                 types: cell_types,
+                faces: None,
             },
             data: model::Attributes {
                 point: point_attribs,
@@ -143,7 +145,7 @@ pub fn convert_polymesh_to_vtk_format<T: Real>(
         .collect();
 
     Ok(model::Vtk {
-        version: model::Version::new((0, 1)),
+        version: model::Version::new(),
         title: String::from("Polygonal Mesh"),
         byte_order: model::ByteOrder::BigEndian,
         file_path: None,
@@ -157,6 +159,7 @@ pub fn convert_polymesh_to_vtk_format<T: Real>(
                             vertices,
                         },
                         types: vec![model::CellType::Polygon; mesh.num_faces()],
+                        faces: None,
                     },
                     data: model::Attributes {
                         point: point_attribs,
@@ -207,7 +210,7 @@ pub fn convert_tetmesh_to_vtk_format<T: Real>(tetmesh: &TetMesh<T>) -> Result<mo
         .collect();
 
     Ok(model::Vtk {
-        version: model::Version::new((0, 1)),
+        version: model::Version::new(),
         title: String::from("Tetrahedral Mesh"),
         byte_order: model::ByteOrder::BigEndian,
         file_path: None,
@@ -219,6 +222,7 @@ pub fn convert_tetmesh_to_vtk_format<T: Real>(tetmesh: &TetMesh<T>) -> Result<mo
                     vertices,
                 },
                 types: vec![model::CellType::Tetra; tetmesh.num_cells()],
+                faces: None,
             },
             data: model::Attributes {
                 point: point_attribs,
@@ -246,7 +250,7 @@ pub fn convert_pointcloud_to_vtk_format<T: Real>(
         .collect();
 
     Ok(model::Vtk {
-        version: model::Version::new((0, 1)),
+        version: model::Version::new(),
         title: String::from("Point Cloud"),
         byte_order: model::ByteOrder::BigEndian,
         file_path: None,
@@ -279,6 +283,7 @@ pub fn convert_pointcloud_to_vtk_format<T: Real>(
                                 .collect::<Vec<_>>(),
                         },
                         types: vec![model::CellType::Vertex; ptcloud.num_vertices()],
+                        faces: None,
                     },
                     data: model::Attributes {
                         point: point_attribs,
@@ -305,7 +310,12 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                 let mesh = Mesh::merge_iter(pieces.iter().filter_map(|piece| {
                     let model::UnstructuredGridPiece {
                         points,
-                        cells: model::Cells { cell_verts, types },
+                        cells:
+                            model::Cells {
+                                cell_verts,
+                                types,
+                                faces,
+                            },
                         data,
                     } = piece
                         .load_piece_data(file_path.as_ref().map(AsRef::as_ref))
@@ -337,6 +347,8 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             model::CellType::Pyramid if n == 5 => CellType::Pyramid,
                             model::CellType::Hexahedron if n == 8 => CellType::Hexahedron,
                             model::CellType::Wedge if n == 6 => CellType::Wedge,
+                            model::CellType::Wedge if n == 6 => CellType::Wedge,
+                            model::CellType::Polyhedron => CellType::Polyhedron,
                             _ => {
                                 cell_type_list.insert(types[c] as usize);
                                 // Not a valid cell type, skip it.
@@ -413,7 +425,12 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                 let mesh = PolyMesh::merge_iter(pieces.iter().filter_map(|piece| {
                     let model::UnstructuredGridPiece {
                         points,
-                        cells: model::Cells { cell_verts, types },
+                        cells:
+                            model::Cells {
+                                cell_verts,
+                                types,
+                                faces,
+                            },
                         data,
                     } = piece
                         .load_piece_data(file_path.as_ref().map(AsRef::as_ref))
@@ -616,7 +633,12 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                 Ok(TetMesh::merge_iter(pieces.iter().filter_map(|piece| {
                     let model::UnstructuredGridPiece {
                         points,
-                        cells: model::Cells { cell_verts, types },
+                        cells:
+                            model::Cells {
+                                cell_verts,
+                                types,
+                                faces,
+                            },
                         data,
                     } = piece
                         .load_piece_data(file_path.as_ref().map(AsRef::as_ref))
@@ -697,7 +719,12 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                 let ptcloud = PointCloud::merge_iter(pieces.iter().filter_map(|piece| {
                     let model::UnstructuredGridPiece {
                         points,
-                        cells: model::Cells { cell_verts, types },
+                        cells:
+                            model::Cells {
+                                cell_verts,
+                                types,
+                                faces,
+                            },
                         data,
                     } = piece
                         .load_piece_data(file_path.as_ref().map(AsRef::as_ref))
@@ -1240,7 +1267,7 @@ mod tests {
     #[test]
     fn basic_test() {
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Tetrahedral Mesh"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,
@@ -1451,7 +1478,7 @@ mod tests {
     fn unstructured_data_polymesh_test() {
         let (points, cell_verts, data) = vtk_polymesh_example_data();
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Polygonal Mesh"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,
@@ -1551,7 +1578,7 @@ mod tests {
         use model::CellType;
         let (points, cell_verts, data) = vtk_polymesh_example_data();
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Polygonal Mesh"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,
@@ -1588,7 +1615,7 @@ mod tests {
     fn poly_data_polymesh_test() {
         let (points, polys, data) = vtk_polymesh_example_data();
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Polygonal Mesh"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,
@@ -1617,7 +1644,7 @@ mod tests {
     fn mixed_poly_data_polymesh_test() {
         let (points, polys, lines, data) = vtk_polymesh_example_mixed_polydata();
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Polygonal Mesh"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,
@@ -1745,7 +1772,7 @@ mod tests {
         });
 
         let vtk = model::Vtk {
-            version: model::Version::new((0, 1)),
+            version: model::Version::new(),
             title: String::from("Point Cloud"),
             byte_order: model::ByteOrder::BigEndian,
             file_path: None,

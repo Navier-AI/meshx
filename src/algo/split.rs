@@ -621,6 +621,9 @@ impl<T: Real> Mesh<T> {
                 CellType::Quad => {
                     todo!()
                 }
+                CellType::Polyhedron => {
+                    todo!()
+                }
             });
 
             // Clear new_vertex_index array.

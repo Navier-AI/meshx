@@ -25,6 +25,7 @@ pub enum CellType {
     Pyramid,
     Hexahedron,
     Wedge,
+    Polyhedron,
 }
 
 impl CellType {
@@ -38,6 +39,9 @@ impl CellType {
             CellType::Pyramid => 5,
             CellType::Hexahedron => 8,
             CellType::Wedge => 6,
+            CellType::Polyhedron => {
+                panic!()
+            }
         }
     }
     pub fn num_tri_faces(&self) -> usize {
@@ -49,6 +53,9 @@ impl CellType {
             CellType::Pyramid => 4,
             CellType::Hexahedron => 0,
             CellType::Wedge => 2,
+            CellType::Polyhedron => {
+                panic!()
+            }
         }
     }
     pub fn num_quad_faces(&self) -> usize {
@@ -60,6 +67,9 @@ impl CellType {
             CellType::Pyramid => 1,
             CellType::Hexahedron => 6,
             CellType::Wedge => 3,
+            CellType::Polyhedron => {
+                panic!()
+            }
         }
     }
 
@@ -108,6 +118,9 @@ impl CellType {
                 } else {
                     CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()].iter()
                 }
+            }
+            CellType::Polyhedron => {
+                panic!()
             }
         }
     }
@@ -158,6 +171,9 @@ impl CellType {
                 for (quad_index, face_vertices) in Self::WEDGE_QUADS.iter().enumerate() {
                     quad_handler(quad_index + Self::WEDGE_TRIS.len(), face_vertices);
                 }
+            }
+            CellType::Polyhedron => {
+                panic!()
             }
         }
     }
