@@ -18,6 +18,7 @@ use flatk::{Chunked, ClumpedView, GetOffset, IntoValues, Offsets, Set, View, Vie
 /// A marker for the type of cell contained in a Mesh.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CellType {
+    Line,
     Triangle,
     Quad,
     Tetrahedron,
@@ -30,6 +31,7 @@ impl CellType {
     /// Returns the number of vertices referenced by this cell type.
     pub fn num_verts(&self) -> usize {
         match self {
+            CellType::Line => 2,
             CellType::Triangle => 3,
             CellType::Quad => 4,
             CellType::Tetrahedron => 4,
@@ -40,6 +42,7 @@ impl CellType {
     }
     pub fn num_tri_faces(&self) -> usize {
         match self {
+            CellType::Line => 0,
             CellType::Triangle => 1,
             CellType::Quad => 0,
             CellType::Tetrahedron => 4,
@@ -50,6 +53,7 @@ impl CellType {
     }
     pub fn num_quad_faces(&self) -> usize {
         match self {
+            CellType::Line => 0,
             CellType::Triangle => 0,
             CellType::Quad => 1,
             CellType::Tetrahedron => 0,
@@ -86,6 +90,7 @@ impl CellType {
     /// nth as defined by [`enumerate_faces`]
     pub fn nth_face_vertices(&self, nth_face: usize) -> std::slice::Iter<usize> {
         match self {
+            CellType::Line => CellType::EMPTY.iter(),
             CellType::Triangle => CellType::EMPTY.iter(),
             CellType::Quad => CellType::EMPTY.iter(),
             CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face].iter(),
@@ -123,26 +128,13 @@ impl CellType {
     /// * `quad_handler` - A closure that handles quadrilateral faces. It receives two arguments:
     ///   - `usize`: The index of the quadrilateral face.
     ///   - `&[usize; 4]`: A reference to an array of 4 vertex indices defining the quadrilateral face.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// cell_type.enumerate_faces(
-    ///     |tri_index, tri_vertices| {
-    ///
-    ///     },
-    ///     |quad_index, quad_vertices| {
-    ///
-    ///     }
-    /// );
-    /// ```
     pub fn enumerate_faces<F, G>(&self, mut tri_handler: F, mut quad_handler: G)
     where
         F: FnMut(usize, &[usize; 3]),
         G: FnMut(usize, &[usize; 4]),
     {
         match self {
-            CellType::Triangle | CellType::Quad => {}
+            CellType::Line | CellType::Triangle | CellType::Quad => {}
             CellType::Tetrahedron => {
                 for (face_index, face_vertices) in Self::TETRAHEDRON_FACES.iter().enumerate() {
                     tri_handler(face_index, face_vertices);
