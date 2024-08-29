@@ -79,9 +79,7 @@ pub fn load_mesh<T: Real>(path: &Path, content: Option<&Vec<u8>>) -> Result<Mesh
         Some("vtk") | Some("vtu") | Some("pvtu") => {
             if let Some(content) = content {
                 // Use the provided content directly
-                // let vtk = Vtk::import_from_bytes(content.as_slice())?;
-                // vtk.extract_mesh()
-                let vtk = Vtk::import(path)?;
+                let vtk = Vtk::parse_legacy_be(content.as_slice()).expect(&format!("Failed to parse file"));
                 vtk.extract_mesh()
             } else {
                 // Read the file from disk
