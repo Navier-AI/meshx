@@ -1,4 +1,5 @@
 #![cfg_attr(feature = "unstable", feature(test, core_intrinsics, trace_macros))]
+#![allow(clippy::all)]
 
 //! A mesh exchange library for providing convenient conversion utilities between popular mesh formats.
 //!

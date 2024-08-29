@@ -1,4 +1,5 @@
 #![recursion_limit = "256"]
+#![allow(clippy::all)]
 extern crate proc_macro;
 
 mod attrib;
@@ -243,7 +244,7 @@ fn impl_new_collection_type(ast: &DeriveInput) -> TokenStream {
     let mut tokens = TokenStream::new();
     let name = &ast.ident;
 
-    let supported_collection_types = vec!["Vec"];
+    let supported_collection_types = ["Vec"];
 
     if let Data::Struct(DataStruct {
         fields: Fields::Unnamed(ref fields),
@@ -262,10 +263,9 @@ fn impl_new_collection_type(ast: &DeriveInput) -> TokenStream {
 
                 let ty = segments.last().unwrap();
 
-                if supported_collection_types
+                if !supported_collection_types
                     .iter()
-                    .find(|&&x| Ident::new(x, Span::call_site()) == ty.ident)
-                    .is_none()
+                    .any(|&x| Ident::new(x, Span::call_site()) == ty.ident)
                 {
                     continue;
                 }
