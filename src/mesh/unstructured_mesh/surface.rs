@@ -171,6 +171,7 @@ impl<T: Real> Mesh<T> {
     /// This function assumes that the given mesh is a manifold.
     ///
     /// (vertices, offsets, cells, cell_face_indices, cell_types)
+    #[allow(clippy::type_complexity)]
     pub fn surface_ngon_data<F1, F2>(
         &self,
         tri_filter: F1,

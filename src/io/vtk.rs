@@ -386,14 +386,14 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
 
                     Some(mesh)
                 }));
-                if cell_type_list.len() > 0 {
+                if !cell_type_list.is_empty() {
                     use num_traits::FromPrimitive;
-                    return Err(Error::UnsupportedCellTypes(
+                    Err(Error::UnsupportedCellTypes(
                         cell_type_list
                             .into_iter()
                             .map(|c| model::CellType::from_usize(c).unwrap())
                             .collect::<Vec<model::CellType>>(),
-                    ));
+                    ))
                 } else {
                     Ok(mesh)
                 }
@@ -1015,9 +1015,9 @@ fn mesh_to_vtk_named_field_attribs<I>(
     }
 }
 
-fn insert_2d_array_attrib<'a, T, M, I>(
+fn insert_2d_array_attrib<T, M, I>(
     buf: &[T],
-    name: &'a str,
+    name: &str,
     mesh: &mut M,
     remap: Option<&[usize]>,
 ) -> Result<(), Error>
@@ -1047,9 +1047,9 @@ where
     Ok(())
 }
 
-fn insert_array_attrib<'a, T, M, I>(
+fn insert_array_attrib<T, M, I>(
     buf: &[T],
-    name: &'a str,
+    name: &str,
     mesh: &mut M,
     remap: Option<&[usize]>,
 ) -> Result<(), Error>
@@ -1067,9 +1067,9 @@ where
     Ok(())
 }
 
-fn insert_array_attrib_n<'a, T, M, I: AttribIndex<M>, N>(
+fn insert_array_attrib_n<T, M, I: AttribIndex<M>, N>(
     buf: &[T],
-    name: &'a str,
+    name: &str,
     mesh: &mut M,
     remap: Option<&[usize]>,
 ) -> Result<(), Error>

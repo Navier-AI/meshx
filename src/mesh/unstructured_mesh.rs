@@ -593,7 +593,7 @@ impl<T: Real> Mesh<T> {
                         .zip(chunk_offsets.sizes())
                         .flat_map(|(&ty, n)| std::iter::repeat(ty).take(n)),
                 )
-                .filter(move |((cell, _), cell_type)| predicate(*cell, *cell_type))
+                .filter(move |((cell, _), cell_type)| predicate(cell, *cell_type))
                 .map(|((cell, offset), _)| (cell, offset))
         }
 
@@ -714,9 +714,9 @@ impl<T: Real> Mesh<T> {
 
         for position in self.vertex_positions.iter() {
             let quantized = [
-                quantize(position[0].clone()),
-                quantize(position[1].clone()),
-                quantize(position[2].clone()),
+                quantize(position[0]),
+                quantize(position[1]),
+                quantize(position[2]),
             ];
 
             let new_index = unique_vertices.len();
@@ -743,7 +743,7 @@ impl<T: Real> Mesh<T> {
 
         let mut new_positions = vec![[T::zero(); 3]; unique_vertices.len()];
         for (old_index, &new_index) in new_indices.iter().enumerate() {
-            new_positions[new_index] = self.vertex_positions[old_index].clone();
+            new_positions[new_index] = self.vertex_positions[old_index];
         }
 
         let mut vertex_attributes: AttribDict<VertexIndex> = AttribDict::new();
