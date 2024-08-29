@@ -74,42 +74,29 @@ pub trait MeshExtractor<T: crate::Real> {
  */
 
 /// Load a tetrahedral mesh from a given file.
-pub fn load_mesh_from_path<T: Real, P: AsRef<Path>>(file: P) -> Result<Mesh<T>, Error> {
-    load_mesh_from_path_impl(file.as_ref())
-}
-
-fn load_mesh_from_path_impl<T: Real>(file: &Path) -> Result<Mesh<T>, Error> {
-    match file.extension().and_then(|ext| ext.to_str()) {
-        Some("vtk") | Some("vtu") | Some("pvtu") => {
-            let vtk = Vtk::import(file)?;
-            vtk.extract_mesh()
-        }
-        #[cfg(feature = "mshio")]
-        Some("msh") => {
-            let msh_bytes = std::fs::read(file)?;
-            let msh = mshio::parse_msh_bytes(msh_bytes.as_slice()).map_err(msh::MshError::from)?;
-            msh.extract_mesh()
-        }
-        // NOTE: wavefront obj files don't support unstructured meshes.
-        _ => Err(Error::UnsupportedFileFormat),
-    }
-}
-
-pub fn load_mesh_from_content<T: Real, P: AsRef<Path>, C: AsRef<Vec<u8>>>(path: P, content: C) -> Result<Mesh<T>, Error> {
-    load_mesh_from_content_impl(path.as_ref(), content.as_ref())
-}
-
-fn load_mesh_from_content_impl<T: Real>(path: &Path, content: &Vec<u8>) -> Result<Mesh<T>, Error> {
+pub fn load_mesh<T: Real>(path: &Path, content: Option<&Vec<u8>>) -> Result<Mesh<T>, Error> {
     match path.extension().and_then(|ext| ext.to_str()) {
         Some("vtk") | Some("vtu") | Some("pvtu") => {
-            // Use the provided content directly
-            let vtk = Vtk::parse_legacy_be(content.as_slice()).expect(&format!("Failed to parse file"));
-            vtk.extract_mesh()
+            if let Some(content) = content {
+                // Use the provided content directly
+                let vtk = Vtk::parse_legacy_be(content.as_slice()).expect(&format!("Failed to parse file"));
+                vtk.extract_mesh()
+            } else {
+                // Read the file from disk
+                let vtk = Vtk::import(path)?;
+                vtk.extract_mesh()
+            }
         }
         #[cfg(feature = "mshio")]
         Some("msh") => {
-            let msh = mshio::parse_msh_bytes(content.as_slice()).map_err(msh::MshError::from)?;
-            msh.extract_mesh()
+            if let Some(content) = content {
+                let msh = mshio::parse_msh_bytes(content.as_slice()).map_err(msh::MshError::from)?;
+                msh.extract_mesh()
+            } else {
+                let msh_bytes = std::fs::read(path)?;
+                let msh = mshio::parse_msh_bytes(msh_bytes.as_slice()).map_err(msh::MshError::from)?;
+                msh.extract_mesh()
+            }
         }
         // NOTE: wavefront obj files don't support unstructured meshes.
         _ => Err(Error::UnsupportedFileFormat),
