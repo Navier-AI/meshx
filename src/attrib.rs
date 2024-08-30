@@ -569,10 +569,7 @@ where
     /// Get the raw mutable attribute from the attribute dictionary.
     ///
     /// From there you can use methods defined on the attribute itself.
-    fn attrib_mut<I: AttribIndex<Self>>(
-        &mut self,
-        name: &str,
-    ) -> Result<&mut Attribute<I>, Error> {
+    fn attrib_mut<I: AttribIndex<Self>>(&mut self, name: &str) -> Result<&mut Attribute<I>, Error> {
         match self.attrib_dict_mut().get_mut(name) {
             Some(attrib) => Ok(attrib),
             None => Err(Error::DoesNotExist(name.to_owned())),
