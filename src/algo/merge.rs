@@ -133,7 +133,7 @@ fn merge_attribute_dicts<I>(
 ///    case all attributes will be extended with the default value to have length equal to
 ///    `num_elements`.
 ///  - `num_additional_elements` must correspond to the number of elements in each attribute inside
-/// `additional_dict`.
+///    `additional_dict`.
 ///  - `source` is a slice of indices mapping attributes in `additional_dict` to entries in `dict`.
 ///     This means that `source` must size of entries in `additional_dict` and indices in the range
 ///     `0..num_elements`.

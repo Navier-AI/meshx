@@ -871,12 +871,12 @@ impl<T: Real> TetMesh<T> {
         (
             comp_vertex_positions
                 .into_iter()
-                .zip(comp_vertex_indices.into_iter())
-                .zip(comp_vertex_attributes.into_iter())
-                .zip(comp_cell_attributes.into_iter())
-                .zip(comp_cell_vertex_attributes.into_iter())
-                .zip(comp_cell_face_attributes.into_iter())
-                .zip(comp_attribute_value_caches.into_iter())
+                .zip(comp_vertex_indices)
+                .zip(comp_vertex_attributes)
+                .zip(comp_cell_attributes)
+                .zip(comp_cell_vertex_attributes)
+                .zip(comp_cell_face_attributes)
+                .zip(comp_attribute_value_caches)
                 .map(|((((((vp, vi), va), ca), cva), cfa), avc)| TetMesh {
                     vertex_positions: vp.into(),
                     indices: vi.into(),
@@ -1511,9 +1511,9 @@ impl<T: Real> Split<VertexIndex> for TetMeshExt<T> {
         // Generate a Vec of meshes.
         comp_tetmesh
             .into_iter()
-            .zip(comp_cell_indices.into_iter())
-            .zip(comp_cell_offsets.into_iter())
-            .zip(comp_vertex_cell_attributes.into_iter())
+            .zip(comp_cell_indices)
+            .zip(comp_cell_offsets)
+            .zip(comp_vertex_cell_attributes)
             .map(|(((tm, ci), co), vca)| TetMeshExt {
                 tetmesh: tm,
                 cell_indices: ci,
@@ -1610,13 +1610,13 @@ impl<T: Real> Split<VertexIndex> for PolyMesh<T> {
         // Generate a Vec of meshes.
         comp_vertex_positions
             .into_iter()
-            .zip(comp_indices.into_iter())
-            .zip(comp_offsets.into_iter())
-            .zip(comp_vertex_attributes.into_iter())
-            .zip(comp_face_attributes.into_iter())
-            .zip(comp_face_vertex_attributes.into_iter())
-            .zip(comp_face_edge_attributes.into_iter())
-            .zip(comp_attribute_value_caches.into_iter())
+            .zip(comp_indices)
+            .zip(comp_offsets)
+            .zip(comp_vertex_attributes)
+            .zip(comp_face_attributes)
+            .zip(comp_face_vertex_attributes)
+            .zip(comp_face_edge_attributes)
+            .zip(comp_attribute_value_caches)
             .map(|(((((((vp, i), o), va), fa), fva), fea), avc)| PolyMesh {
                 vertex_positions: vp.into(),
                 indices: i,

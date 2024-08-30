@@ -17,7 +17,7 @@ struct SortedQuad {
 
 impl SortedQuad {
     fn new(indices: [usize; 4]) -> Self {
-        let mut indices = indices.clone();
+        let mut indices = indices;
         indices.sort();
         SortedQuad {
             sorted_indices: indices,
@@ -171,6 +171,7 @@ impl<T: Real> Mesh<T> {
     /// This function assumes that the given mesh is a manifold.
     ///
     /// (vertices, offsets, cells, cell_face_indices, cell_types)
+    #[allow(clippy::type_complexity)]
     pub fn surface_ngon_data<F1, F2>(
         &self,
         tri_filter: F1,
