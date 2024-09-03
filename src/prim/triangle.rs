@@ -261,9 +261,9 @@ mod tests {
         );
 
         let mut tri = Triangle(
-            trif[0].map(|x| F1::cst(x)),
-            trif[1].map(|x| F1::cst(x)),
-            trif[2].map(|x| F1::cst(x)),
+            trif[0].map(F1::cst),
+            trif[1].map(F1::cst),
+            trif[2].map(F1::cst),
         );
 
         // for each vertex
@@ -291,9 +291,9 @@ mod tests {
         );
 
         let mut tri = Triangle(
-            trif[0].map(|x| F1::cst(x)),
-            trif[1].map(|x| F1::cst(x)),
-            trif[2].map(|x| F1::cst(x)),
+            trif[0].map(F1::cst),
+            trif[1].map(F1::cst),
+            trif[2].map(F1::cst),
         );
 
         let lambda = Vector3::from([0.2, 3.1, 42.0]); // some random multiplier
@@ -309,7 +309,7 @@ mod tests {
                         lambda.into(),
                     ));
                     // for each component
-                    let ad_lambda = lambda.map(|x| F1::cst(x));
+                    let ad_lambda = lambda.map(F1::cst);
                     let grad_prod = Matrix3::from(tri.area_normal_gradient(at_vtx)) * ad_lambda;
                     for j in 0..3 {
                         assert_relative_eq!(

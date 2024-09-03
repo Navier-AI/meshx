@@ -105,9 +105,9 @@ where
     /// In an attribute with the same name already exists, an error is returned.
     /// If an existing attribute should be overwritten, use
     /// [`Attrib::reset_attrib_to_default`] instead.
-    fn insert_attrib_with_default<'a, T, I: AttribIndex<Self>>(
+    fn insert_attrib_with_default<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -126,9 +126,9 @@ where
     /// If an attribute with the same name already exists, an error is returned.
     /// Use [`Attrib::set_attrib_data`] to overwrite the attribute in such a
     /// case.
-    fn insert_attrib_data<'a, T, I: AttribIndex<Self>>(
+    fn insert_attrib_data<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         data: Vec<T>,
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -151,9 +151,9 @@ where
 
     /// Resets the attribute to the specified default value whether or not it
     /// already exists.
-    fn reset_attrib_to_default<'a, T, I: AttribIndex<Self>>(
+    fn reset_attrib_to_default<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -174,9 +174,9 @@ where
     ///
     /// If an attribute with the same name already exists, it is overwritten. To
     /// avoid overwriting existing attributes use [`Attrib::insert_attrib_data`].
-    fn set_attrib_data<'a, T, I: AttribIndex<Self>>(
+    fn set_attrib_data<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         data: Vec<T>,
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -201,9 +201,9 @@ where
     }
 
     /// Insert an indirect attribute at the appropriate location with a given default.
-    fn insert_indirect_attrib<'a, T, I: AttribIndex<Self>>(
+    fn insert_indirect_attrib<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<(&mut Attribute<I>, &mut AttribValueCache), Error>
     where
@@ -224,9 +224,9 @@ where
 
     /// Sets the indirect attribute to the specified default value whether or not it
     /// already exists.
-    fn set_indirect_attrib<'a, T, I: AttribIndex<Self>>(
+    fn set_indirect_attrib<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<(&mut Attribute<I>, &mut AttribValueCache), Error>
     where
@@ -251,9 +251,9 @@ where
 
     /// Construct an indirect attribute from a given `IndirectData`. `data` must have
     /// exactly the right size for the attribute to be inserted successfully.
-    fn insert_indirect_attrib_data<'a, I: AttribIndex<Self>>(
+    fn insert_indirect_attrib_data<I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         data: IndirectData,
     ) -> Result<(&mut Attribute<I>, &mut AttribValueCache), Error> {
         let expected_size = self.attrib_size::<I>();
@@ -277,9 +277,9 @@ where
 
     /// Set an indirect attribute to the given `IndirectData` instance. `data` must have
     /// exactly the right size for the attribute to be set successfully.
-    fn set_indirect_attrib_data<'a, I: AttribIndex<Self>>(
+    fn set_indirect_attrib_data<I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         data: IndirectData,
     ) -> Result<(&mut Attribute<I>, &mut AttribValueCache), Error> {
         let expected_size = self.attrib_size::<I>();
@@ -308,10 +308,10 @@ where
     /// Makes a copy of an existing attribute.
     ///
     /// Return a mutable reference to the new attribute if successful.
-    fn duplicate_attrib<'a, 'b, T, I: AttribIndex<Self>>(
+    fn duplicate_attrib<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
-        new_name: &'b str,
+        name: &str,
+        new_name: &str,
     ) -> Result<&mut Attribute<I>, Error>
     where
         T: Any + Clone,
@@ -363,9 +363,9 @@ where
     /// Retrieve the attribute with the given name and if it doesn't exist, insert a new one and set
     /// it to a given default value. In either case the mutable reference to the attribute is
     /// returned.
-    fn attrib_or_insert_with_default<'a, T, I: AttribIndex<Self>>(
+    fn attrib_or_insert_with_default<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -381,9 +381,9 @@ where
     /// Retrieve the attribute with the given name and if it doesn't exist, set its data to
     /// what's in the given slice. In either case the mutable reference to the attribute is
     /// returned.
-    fn attrib_or_insert_data<'a, T, I: AttribIndex<Self>>(
+    fn attrib_or_insert_data<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         data: &[T],
     ) -> Result<&mut Attribute<I>, Error>
     where
@@ -407,9 +407,9 @@ where
     /// Retrieve the indirect attribute with the given name and if it doesn't exist, insert a new one
     /// and set it to a given default value. In either case the mutable reference to the attribute
     /// is returned.
-    fn attrib_or_insert_indirect<'a, T, I: AttribIndex<Self>>(
+    fn attrib_or_insert_indirect<T, I: AttribIndex<Self>>(
         &mut self,
-        name: &'a str,
+        name: &str,
         def: T,
     ) -> Result<(&mut Attribute<I>, &mut AttribValueCache), Error>
     where
@@ -502,9 +502,9 @@ where
     /// location.
     ///
     /// This is an alias for `attrib::<I>(name)?.iter::<T>()`.
-    fn attrib_check<'a, T: Any, I: AttribIndex<Self>>(
+    fn attrib_check<T: Any, I: AttribIndex<Self>>(
         &self,
-        name: &'a str,
+        name: &str,
     ) -> Result<&Attribute<I>, Error> {
         self.attrib::<I>(name)?.check::<T>()
     }
@@ -559,7 +559,7 @@ where
     /// Borrow the raw attribute from the attribute dictionary.
     ///
     /// From there you can use methods defined on the attribute itself.
-    fn attrib<'a, I: AttribIndex<Self>>(&self, name: &'a str) -> Result<&Attribute<I>, Error> {
+    fn attrib<I: AttribIndex<Self>>(&self, name: &str) -> Result<&Attribute<I>, Error> {
         match self.attrib_dict().get(name) {
             Some(attrib) => Ok(attrib),
             None => Err(Error::DoesNotExist(name.to_owned())),
@@ -569,10 +569,7 @@ where
     /// Get the raw mutable attribute from the attribute dictionary.
     ///
     /// From there you can use methods defined on the attribute itself.
-    fn attrib_mut<'a, I: AttribIndex<Self>>(
-        &mut self,
-        name: &'a str,
-    ) -> Result<&mut Attribute<I>, Error> {
+    fn attrib_mut<I: AttribIndex<Self>>(&mut self, name: &str) -> Result<&mut Attribute<I>, Error> {
         match self.attrib_dict_mut().get_mut(name) {
             Some(attrib) => Ok(attrib),
             None => Err(Error::DoesNotExist(name.to_owned())),
@@ -959,8 +956,8 @@ mod tests {
             let attrib = trimesh
                 .insert_attrib_data::<_, VertexIndex>("attrib1", data.clone())
                 .unwrap();
-            for i in 0..data.len() {
-                assert_eq!(attrib.get::<[i8; 3], _>(VertexIndex::from(i)), Ok(data[i]));
+            for (i, data) in data.iter().enumerate() {
+                assert_eq!(attrib.get::<[i8; 3], _>(VertexIndex::from(i)), Ok(*data));
             }
         }
         assert_eq!(
