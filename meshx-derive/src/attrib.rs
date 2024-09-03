@@ -254,8 +254,8 @@ pub(crate) fn impl_attrib(ast: &DeriveInput) -> TokenStream {
 
                 if ty.ident == "AttribDict" {
                     if let Some((attrib_tokens, attrib_type)) = try_add_attrib_tokens(
-                        &name,
-                        &path,
+                        name,
+                        path,
                         &ty.arguments,
                         &cache_or_none,
                         field_name.unwrap(),
@@ -268,7 +268,7 @@ pub(crate) fn impl_attrib(ast: &DeriveInput) -> TokenStream {
                     }
                 } else {
                     for item in
-                        try_add_inherited_attrib_tokens(&name, &field, &ast.generics).into_iter()
+                        try_add_inherited_attrib_tokens(name, field, &ast.generics).into_iter()
                     {
                         tokens.append_all(quote! { #item });
                         found_static_attrib = true;
