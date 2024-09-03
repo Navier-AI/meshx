@@ -73,41 +73,31 @@ pub trait MeshExtractor<T: crate::Real> {
  * IO calls for unstructured Meshes
  */
 
-/// Load a tetrahedral mesh from a given file.
-pub fn load_mesh<T: Real>(
+pub fn load_mesh_from_content<T: Real>(
     path: impl AsRef<Path>,
-    content: Option<&Vec<u8>>,
+    content: &[u8],
 ) -> Result<Mesh<T>, Error> {
     let path = path.as_ref();
 
     match path.extension().and_then(|ext| ext.to_str()) {
         Some("vtk") | Some("vtu") | Some("pvtu") => {
-            if let Some(content) = content {
-                // Use the provided content directly
-                let vtk = Vtk::parse_legacy_be(content.as_slice()).expect("Failed to parse file");
-                vtk.extract_mesh()
-            } else {
-                // Read the file from disk
-                let vtk = Vtk::import(path)?;
-                vtk.extract_mesh()
-            }
+            Vtk::import_from_contents(path, content)?.extract_mesh()
         }
         #[cfg(feature = "mshio")]
-        Some("msh") => {
-            if let Some(content) = content {
-                let msh =
-                    mshio::parse_msh_bytes(content.as_slice()).map_err(msh::MshError::from)?;
-                msh.extract_mesh()
-            } else {
-                let msh_bytes = std::fs::read(path)?;
-                let msh =
-                    mshio::parse_msh_bytes(msh_bytes.as_slice()).map_err(msh::MshError::from)?;
-                msh.extract_mesh()
-            }
-        }
+        Some("msh") => mshio::parse_msh_bytes(content)
+            .map_err(msh::MshError::from)?
+            .extract_mesh(),
         // NOTE: wavefront obj files don't support unstructured meshes.
         _ => Err(Error::UnsupportedFileFormat),
     }
+}
+
+/// Load a tetrahedral mesh from a given file.
+pub fn load_mesh<T: Real>(path: impl AsRef<Path>) -> Result<Mesh<T>, Error> {
+    let path = path.as_ref();
+    let content = std::fs::read(path)?;
+
+    load_mesh_from_content(path, &content)
 }
 
 /// Save a mesh to a file.
@@ -554,7 +544,7 @@ mod tests {
     #[test]
     fn sphere_msh() -> Result<(), Error> {
         use crate::mesh::topology::*;
-        let mesh: Mesh<f64> = load_mesh("assets/sphere_coarse.msh", None)?;
+        let mesh: Mesh<f64> = load_mesh("assets/sphere_coarse.msh")?;
         assert_eq!(mesh.num_vertices(), 183);
         assert_eq!(mesh.num_cells(), 593);
         Ok(())
