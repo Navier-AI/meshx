@@ -697,6 +697,7 @@ mod tests {
         ]
     }
 
+    #[allow(clippy::excessive_precision)]
     fn make_normals() -> Vec<[f32; 3]> {
         vec![
             [0.577350318, -0.577350318, 0.577350318],
@@ -789,7 +790,7 @@ mod tests {
         let faces = make_polygons();
         let faces_flat: Vec<_> = faces
             .into_iter()
-            .flat_map(|poly| std::iter::once(poly.len()).chain(poly.into_iter()))
+            .flat_map(|poly| std::iter::once(poly.len()).chain(poly))
             .collect();
         let mut polymesh = PolyMesh::new(pts, &faces_flat);
 

@@ -956,8 +956,8 @@ mod tests {
             let attrib = trimesh
                 .insert_attrib_data::<_, VertexIndex>("attrib1", data.clone())
                 .unwrap();
-            for i in 0..data.len() {
-                assert_eq!(attrib.get::<[i8; 3], _>(VertexIndex::from(i)), Ok(data[i]));
+            for (i, data) in data.iter().enumerate() {
+                assert_eq!(attrib.get::<[i8; 3], _>(VertexIndex::from(i)), Ok(*data));
             }
         }
         assert_eq!(

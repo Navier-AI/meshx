@@ -219,7 +219,7 @@ mod tests {
         assert_relative_eq!(mtx[0][0], -0.471405, epsilon = 1e-4);
         assert_relative_eq!(mtx[0][1], 1.33333, epsilon = 1e-4);
         assert_relative_eq!(mtx[0][2], 0.816498, epsilon = 1e-4);
-        assert_relative_eq!(mtx[1][0], -1.41421, epsilon = 1e-4);
+        assert_relative_eq!(mtx[1][0], -std::f64::consts::SQRT_2, epsilon = 1e-4);
         assert_relative_eq!(mtx[1][1], 0.0, epsilon = 1e-4);
         assert_relative_eq!(mtx[1][2], 0.816498, epsilon = 1e-4);
         assert_relative_eq!(mtx[2][0], 0.0, epsilon = 1e-4);

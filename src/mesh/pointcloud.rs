@@ -184,7 +184,7 @@ mod tests {
 
         let ptcloud = PointCloud::new(pts.clone());
 
-        let polymesh = PolyMesh::new(pts.clone(), &vec![]);
+        let polymesh = PolyMesh::new(pts.clone(), &[]);
         let trimesh = TriMesh::new(pts.clone(), vec![]);
         let quadmesh = QuadMesh::new(pts.clone(), vec![]);
         let tetmesh = TetMesh::new(pts.clone(), vec![]);

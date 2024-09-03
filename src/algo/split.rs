@@ -2511,7 +2511,7 @@ mod tests {
 
         mesh.insert_attrib_data::<usize, CellVertexIndex>("test", (0..num_cell_vertices).collect())
             .unwrap();
-        let parts = mesh.split_by_cell_partition(&[0, 1, 1, 1], 2).0;
+        let parts = mesh.split_by_cell_partition([0, 1, 1, 1], 2).0;
         assert_eq!(parts[0].indices.storage().as_slice(), &[0, 1, 2][..]);
         assert_eq!(
             parts[1].indices.storage().as_slice(),

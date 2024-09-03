@@ -340,7 +340,7 @@ mod tests {
         assert_eq!(Index::from(mesh.cell_face(2, 3)), 11);
 
         // Verify dual topology
-        let vertex_cells = vec![
+        let vertex_cells = [
             vec![0, 1, 2],
             vec![2],
             vec![0, 1],
@@ -348,13 +348,13 @@ mod tests {
             vec![0],
             vec![0, 1, 2],
         ];
-        for i in 0..vertex_cells.len() {
-            assert_eq!(mesh.num_cells_at_vertex(i), vertex_cells[i].len());
+        for (i, vertex_cell) in vertex_cells.iter().enumerate() {
+            assert_eq!(mesh.num_cells_at_vertex(i), vertex_cell.len());
             let mut local_cells: Vec<usize> = (0..mesh.num_cells_at_vertex(i))
                 .map(|j| mesh.vertex_to_cell(i, j).unwrap().into())
                 .collect();
             local_cells.sort();
-            assert_eq!(local_cells, vertex_cells[i]);
+            assert_eq!(local_cells, *vertex_cell);
         }
     }
 

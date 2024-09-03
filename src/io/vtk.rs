@@ -1190,7 +1190,7 @@ where
         .unwrap_or_else(|err| {
             #[cfg(feature = "unstable")]
             {
-                eprintln!("WARNING: Attribute transfer error at {}: {}", std::intrinsics::type_name::<I>(), err)
+                eprintln!("WARNING: Attribute transfer error at {}: {}", std::any::type_name::<I>(), err)
             }
             #[cfg(not(feature = "unstable"))]
             {
@@ -1459,7 +1459,7 @@ mod tests {
                 points,
                 cells: model::Cells {
                     cell_verts: cell_verts.clone(),
-                    types: vec![model::CellType::Polygon; cell_verts.num_cells() as usize],
+                    types: vec![model::CellType::Polygon; cell_verts.num_cells()],
                 },
                 data,
             }),
