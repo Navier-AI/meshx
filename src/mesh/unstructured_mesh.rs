@@ -593,7 +593,7 @@ impl<T: Real> Mesh<T> {
                         .zip(chunk_offsets.sizes())
                         .flat_map(|(&ty, n)| std::iter::repeat(ty).take(n)),
                 )
-                .filter(move |((cell, _), cell_type)| predicate(*cell, *cell_type))
+                .filter(move |((cell, _), cell_type)| predicate(cell, *cell_type))
                 .map(|((cell, offset), _)| (cell, offset))
         }
 
@@ -714,9 +714,9 @@ impl<T: Real> Mesh<T> {
 
         for position in self.vertex_positions.iter() {
             let quantized = [
-                quantize(position[0].clone()),
-                quantize(position[1].clone()),
-                quantize(position[2].clone()),
+                quantize(position[0]),
+                quantize(position[1]),
+                quantize(position[2]),
             ];
 
             let new_index = unique_vertices.len();
@@ -743,7 +743,7 @@ impl<T: Real> Mesh<T> {
 
         let mut new_positions = vec![[T::zero(); 3]; unique_vertices.len()];
         for (old_index, &new_index) in new_indices.iter().enumerate() {
-            new_positions[new_index] = self.vertex_positions[old_index].clone();
+            new_positions[new_index] = self.vertex_positions[old_index];
         }
 
         let mut vertex_attributes: AttribDict<VertexIndex> = AttribDict::new();
@@ -985,7 +985,7 @@ mod tests {
     fn reverse_only_triangles() {
         let mut mesh = build_simple_mesh();
         let cv = vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        let cv_reversed = vec![3.0_f32, 2.0, 1.0, 6.0, 5.0, 4.0, 7.0, 8.0, 9.0, 10.0];
+        let cv_reversed = [3.0_f32, 2.0, 1.0, 6.0, 5.0, 4.0, 7.0, 8.0, 9.0, 10.0];
         mesh.insert_attrib_data::<f32, CellVertexIndex>("cv", cv.clone())
             .unwrap();
         mesh.reverse_if(|_, cell_type| matches!(cell_type, CellType::Triangle));
@@ -1065,7 +1065,7 @@ mod tests {
         let ptcld = PointCloud::new(points.clone());
         let ptcld_mesh = Mesh::from_cells_with_type(
             points.clone(),
-            &[],
+            [],
             |_| CellType::Triangle, /* never called */
         );
         assert_eq!(Mesh::from(ptcld), ptcld_mesh);

@@ -17,7 +17,7 @@ struct SortedQuad {
 
 impl SortedQuad {
     fn new(indices: [usize; 4]) -> Self {
-        let mut indices = indices.clone();
+        let mut indices = indices;
         indices.sort();
         SortedQuad {
             sorted_indices: indices,
@@ -171,6 +171,7 @@ impl<T: Real> Mesh<T> {
     /// This function assumes that the given mesh is a manifold.
     ///
     /// (vertices, offsets, cells, cell_face_indices, cell_types)
+    #[allow(clippy::type_complexity)]
     pub fn surface_ngon_data<F1, F2>(
         &self,
         tri_filter: F1,
@@ -437,9 +438,6 @@ mod tests {
             .for_each(|(key, value)| println!("{:?}: {:?}", key, value));
 
         // assert that the triangle connecting the two shapes doesn't exist.
-        assert!(triangles
-            .iter()
-            .find(|x| x.0.sorted_indices == [2, 3, 4])
-            .is_none())
+        assert!(!triangles.iter().any(|x| x.0.sorted_indices == [2, 3, 4]))
     }
 }

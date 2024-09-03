@@ -25,7 +25,7 @@ unsafe impl bytemuck::Zeroable for Index {}
 
 impl Index {
     /// Invalid index instance.
-    pub const INVALID: Index = Index(std::usize::MAX);
+    pub const INVALID: Index = Index(usize::MAX);
 
     /// Create a valid index from a usize type. This constructor does the necessary check
     /// for debug builds only.
@@ -52,7 +52,7 @@ impl Index {
     #[inline]
     pub fn and_then<F: FnOnce(usize) -> Index>(self, f: F) -> Index {
         if self.is_valid() {
-            f(self.0 as usize)
+            f(self.0)
         } else {
             self
         }
@@ -85,7 +85,7 @@ impl Index {
     /// internally to check various conversions and arithmetics for debug builds.
     #[inline]
     fn fits(i: usize) -> bool {
-        i != std::usize::MAX
+        i != usize::MAX
     }
 }
 
@@ -135,7 +135,7 @@ impl From<Index> for Option<usize> {
     #[inline]
     fn from(val: Index) -> Self {
         if val.is_valid() {
-            Some(val.0 as usize)
+            Some(val.0)
         } else {
             None
         }

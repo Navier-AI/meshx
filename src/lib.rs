@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "unstable", feature(test, core_intrinsics, trace_macros))]
+#![cfg_attr(feature = "unstable", feature(test, trace_macros))]
 
 //! A mesh exchange library for providing convenient conversion utilities between popular mesh formats.
 //!
