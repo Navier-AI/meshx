@@ -348,7 +348,26 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             model::CellType::Hexahedron if n == 8 => CellType::Hexahedron,
                             model::CellType::Wedge if n == 6 => CellType::Wedge,
                             model::CellType::Wedge if n == 6 => CellType::Wedge,
-                            model::CellType::Polyhedron => CellType::Polyhedron,
+                            model::CellType::Polyhedron => {
+                                if let Some(face_info) = faces.as_ref() {
+                                    // Process face data for polyhedron
+                                    let cell_start_idx = face_info.faceoffsets[c] as usize;
+                                    let mut faces_count = face_info.faces[cell_start_idx];
+                                    let mut face_start_idx = cell_start_idx + 1;
+                                    while faces_count > 0 {
+                                        let vert_count = face_info.faces[face_start_idx];
+                                        for vert in face_info.faces
+                                            [face_start_idx..face_start_idx + vert_count]
+                                        {
+                                            // todo: figure out how to push this data into the indices
+                                            //  and how to store the different cell face types
+                                            //  (since it can't be hardcoded which verts are which faces
+                                            //  for polyhedron in the meshx representation currently)
+                                        }
+                                    }
+                                }
+                                CellType::Polyhedron
+                            }
                             _ => {
                                 cell_type_list.insert(types[c] as usize);
                                 // Not a valid cell type, skip it.
