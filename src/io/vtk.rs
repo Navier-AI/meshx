@@ -5,7 +5,7 @@ use crate::mesh::{CellType, Mesh, PointCloud, PolyMesh, TetMesh, VertexPositions
 use ahash::HashSet;
 use flatk::{
     consts::{U10, U11, U12, U13, U14, U15, U16, U2, U3, U4, U5, U6, U7, U8, U9},
-    U,
+    Chunked, Push, U,
 };
 
 use super::MeshExtractor;
@@ -336,11 +336,17 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
 
                     // Get contiguous indices (4 vertex indices for each tet or 3 for triangles).
                     let mut begin = 0usize;
-                    let mut indices = Vec::new();
+                    let mut cell_indices = Vec::new();
                     let mut counts = Vec::new();
                     let mut cell_types = Vec::new();
+
+                    let mut polyhedra_face_sizes: Chunked<Vec<u16>> = Default::default();
+
                     for (c, &end) in offsets.iter().enumerate() {
                         let n = end as usize - begin;
+                        let mut is_polyhedra = false;
+                        let mut face_sizes = vec![];
+                        let mut poly_verts = vec![];
                         let cell_type = match types[c] {
                             model::CellType::Triangle if n == 3 => CellType::Triangle,
                             model::CellType::Tetra if n == 4 => CellType::Tetrahedron,
@@ -353,19 +359,23 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     // Process face data for polyhedron
                                     let cell_start_idx = face_info.faceoffsets[c] as usize;
                                     let mut faces_count = face_info.faces[cell_start_idx];
-                                    let mut face_start_idx = cell_start_idx + 1;
+                                    let faces_start_idx = cell_start_idx + 1;
+                                    let mut idx_into_cell = 0;
                                     while faces_count > 0 {
-                                        let vert_count = face_info.faces[face_start_idx];
-                                        for vert in face_info.faces
-                                            [face_start_idx..face_start_idx + vert_count]
-                                        {
-                                            // todo: figure out how to push this data into the indices
-                                            //  and how to store the different cell face types
-                                            //  (since it can't be hardcoded which verts are which faces
-                                            //  for polyhedron in the meshx representation currently)
+                                        let vert_count =
+                                            face_info.faces[faces_start_idx + idx_into_cell];
+                                        face_sizes.push(vert_count as u16);
+                                        let end_idx = faces_start_idx + vert_count;
+                                        for vert in face_info.faces[faces_start_idx..end_idx] {
+                                            poly_verts.push(vert);
+                                            idx_into_cell += 1;
                                         }
+                                        idx_into_cell += 1;
+                                        faces_count -= 1;
                                     }
-                                }
+                                    assert_eq!(n, faces_start_idx + 1);
+                                };
+                                is_polyhedra = true;
                                 CellType::Polyhedron
                             }
                             _ => {
@@ -376,10 +386,15 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             }
                         };
 
-                        if cell_types.is_empty() || *cell_types.last().unwrap() != cell_type {
+                        if cell_types.is_empty()
+                            || *cell_types.last().unwrap() != cell_type
+                            || is_polyhedra
+                        {
                             // Start a new block.
                             cell_types.push(cell_type);
                             counts.push(1);
+
+                            polyhedra_face_sizes.push(face_sizes)
                         } else if let Some(last) = counts.last_mut() {
                             *last += 1;
                         } else {
@@ -388,14 +403,20 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         }
 
                         orig_cell_idx.push(c);
-                        for i in 0..n {
-                            indices.push(connectivity[begin + i] as usize);
+                        if !is_polyhedra {
+                            for i in 0..n {
+                                cell_indices.push(connectivity[begin + i] as usize);
+                            }
+                        } else {
+                            cell_indices.extend(poly_verts);
                         }
+
                         begin = end as usize;
                     }
 
                     let mut mesh =
-                        Mesh::from_cells_counts_and_types(pts, indices, counts, cell_types);
+                        Mesh::from_cells_counts_and_types(pts, cell_indices, counts, cell_types);
+                    mesh.polyhedra_face_counts = polyhedra_face_sizes;
 
                     // Don't bother transferring attributes if there are no vertices or cells.
                     // This supresses some needless size mismatch warnings when the dataset has an

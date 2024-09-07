@@ -193,9 +193,24 @@ pub struct Mesh<T: Real> {
     /// Indices into `vertices`. Each chunk represents a cell, and cells
     /// can have an arbitrary number of referenced vertices. Each clump
     /// represents cells of the same kind.
+    ///
+    /// Each polyhedron CellType gets its own single item clump.
     pub indices: flatk::Clumped<Vec<usize>>,
     /// Types of cells, one for each clump in `indices`.
     pub types: Vec<CellType>,
+
+    /// Each chunk maps to a single clump in the indices Clumped vec.
+    ///
+    /// Every non-polyhedron cell type clump has a chunk of zero size
+    /// "stored" here.
+    ///
+    /// For the polyhedra clumps, a single chunk stores that polyhedrons
+    /// face sizes.
+    ///
+    /// ie: [[],[3, 3, 3, 3], [3, 3, 3, 3]] if the first clump in indices
+    /// is not a polyhedron, and the next two are each a polyhedra with 4 triangle faces
+    pub polyhedra_face_counts: Chunked<Vec<u16>>,
+
     /// Vertex attributes.
     pub vertex_attributes: AttribDict<VertexIndex>,
     /// Cell attributes.
@@ -266,10 +281,14 @@ impl<T: Real> Mesh<T> {
         let cells = cells.into_iter().flatten().collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
+        assert!(!types.contains(&CellType::Polyhedron));
+        // Todo: for proper Polyhedron support, we should support parsing the data here
+        //  and generating the requisite data similar to vtk.rs line 357
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts: Default::default(),
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -332,10 +351,14 @@ impl<T: Real> Mesh<T> {
         let sizes: Vec<_> = types.iter().map(CellType::num_verts).collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
+        assert!(!types.contains(&CellType::Polyhedron));
+        // Todo: for proper Polyhedron support, we should support parsing the data here
+        //  and generating the requisite data similar to vtk.rs line 357
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts: Default::default(),
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -423,10 +446,14 @@ impl<T: Real> Mesh<T> {
             })
             .collect();
 
+        assert!(!types.contains(&CellType::Polyhedron));
+        // Todo: for proper Polyhedron support, we should support parsing the data here
+        //  and generating the requisite data similar to vtk.rs line 357
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: flatk::Clumped::from_clumped_offsets(chunk_offsets, offsets, cells),
             types,
+            polyhedra_face_counts: Default::default(),
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -503,7 +530,7 @@ impl<T: Real> Mesh<T> {
 
         let clumped_indices = flatk::Clumped::from(chunked_indices);
 
-        let types = clumped_indices
+        let types: Vec<_> = clumped_indices
             .chunks
             .chunk_offsets
             .iter()
@@ -511,10 +538,14 @@ impl<T: Real> Mesh<T> {
             .take(clumped_indices.chunks.num_clumps())
             .collect();
 
+        assert!(!types.contains(&CellType::Polyhedron));
+        // Todo: for proper Polyhedron support, we should support parsing the data here
+        //  and generating the requisite data similar to vtk.rs line 357
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts: Default::default(),
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -713,78 +744,6 @@ impl<T: Real> Mesh<T> {
 
         order
     }
-
-    /// Creates a new mesh with deduplicated vertices within a given epsilon.
-    ///
-    /// This function will create a new mesh where vertices that are closer than `epsilon` to each other
-    /// are merged, updating the indices accordingly, and adjusting all vertex-based attributes.
-    pub fn deduplicated_vertices(&self, epsilon: T) -> (Mesh<T>, usize)
-    where
-        T: Clone,
-    {
-        let mut unique_vertices: HashMap<[i32; 3], usize> = HashMap::new();
-        let mut new_indices: Vec<usize> = Vec::with_capacity(self.num_vertices());
-        let mut removed_count = 0;
-
-        let quantize = |x: T| num_traits::Float::round(x / epsilon).to_i32().unwrap();
-
-        for position in self.vertex_positions.iter() {
-            let quantized = [
-                quantize(position[0].clone()),
-                quantize(position[1].clone()),
-                quantize(position[2].clone()),
-            ];
-
-            let new_index = unique_vertices.len();
-            let new_index = match unique_vertices.entry(quantized) {
-                Entry::Occupied(o) => {
-                    removed_count += 1;
-                    *o.get()
-                }
-                Entry::Vacant(v) => {
-                    v.insert(new_index);
-                    new_index
-                }
-            };
-
-            new_indices.push(new_index);
-        }
-
-        let mut new_cell_indices = self.indices.clone();
-        for cell in new_cell_indices.iter_mut() {
-            for index in cell.iter_mut() {
-                *index = new_indices[*index];
-            }
-        }
-
-        let mut new_positions = vec![[T::zero(); 3]; unique_vertices.len()];
-        for (old_index, &new_index) in new_indices.iter().enumerate() {
-            new_positions[new_index] = self.vertex_positions[old_index].clone();
-        }
-
-        let mut vertex_attributes: AttribDict<VertexIndex> = AttribDict::new();
-
-        for (name, attrib) in self.attrib_dict::<VertexIndex>().iter() {
-            let new_attrib = attrib.duplicate_with_len(new_positions.len(), |mut new, old| {
-                for (&idx, val) in new_indices.iter().zip(old.iter()) {
-                    new.get_mut(idx).clone_from_other(val).unwrap();
-                }
-            });
-            vertex_attributes.insert(name.to_string(), new_attrib);
-        }
-
-        let new_mesh = Mesh {
-            vertex_positions: IntrinsicAttribute::from_vec(new_positions),
-            indices: new_cell_indices,
-            types: self.types.clone(),
-            vertex_attributes,
-            cell_attributes: self.cell_attributes.clone(),
-            cell_vertex_attributes: self.cell_vertex_attributes.clone(),
-            attribute_value_cache: self.attribute_value_cache.clone(),
-        };
-
-        (new_mesh, removed_count)
-    }
 }
 
 impl<T: Real> Default for Mesh<T> {
@@ -898,6 +857,7 @@ impl<T: Real> From<super::TriMesh<T>> for Mesh<T> {
                 flatk::Chunked3::from_array_vec(indices.into_vec()).into_inner(),
             ),
             types,
+            polyhedra_face_counts: flatk::Chunks::from_offsets,
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,
