@@ -231,7 +231,7 @@ impl<T: Real> Merge for Mesh<T> {
         self.polyhedra_face_counts
             .data
             .extend(other_polyhedra_face_counts.data.iter());
-        // Todo: verify that this is handling the offsets properly
+
         self.polyhedra_face_counts
             .chunks
             .extend(other_polyhedra_face_counts.chunks.iter());
@@ -292,7 +292,7 @@ impl<T: Real> Mesh<T> {
         let mut vertex_positions = Vec::new();
         let mut indices = Clumped::from_clumped_offsets(vec![0], vec![0], vec![]);
         let mut types = Vec::new();
-        let mut polyhedra_face_counts = Chunked::from_offsets(vec![0], vec![0]);
+        let mut polyhedra_face_counts = Chunked::from_sizes(vec![], vec![]);
         let mut vertex_attributes = AttribDict::new();
         let mut cell_attributes = AttribDict::new();
         let mut cell_vertex_attributes = AttribDict::new();
@@ -354,7 +354,7 @@ impl<T: Real> Mesh<T> {
             polyhedra_face_counts
                 .data
                 .extend(mesh.polyhedra_face_counts.data.iter());
-            // Todo: verify that this is handling the offsets properly
+
             polyhedra_face_counts
                 .chunks
                 .extend(mesh.polyhedra_face_counts.chunks.iter());

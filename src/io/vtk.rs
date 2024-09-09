@@ -346,7 +346,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         let n = end as usize - begin;
                         let mut is_polyhedra = false;
                         let mut face_sizes = vec![];
-                        let mut poly_verts = vec![];
+                        let mut poly_verts: Vec<usize> = vec![];
                         let cell_type = match types[c] {
                             model::CellType::Triangle if n == 3 => CellType::Triangle,
                             model::CellType::Tetra if n == 4 => CellType::Tetrahedron,
@@ -365,15 +365,15 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                         let vert_count =
                                             face_info.faces[faces_start_idx + idx_into_cell];
                                         face_sizes.push(vert_count as u16);
-                                        let end_idx = faces_start_idx + vert_count;
-                                        for vert in face_info.faces[faces_start_idx..end_idx] {
-                                            poly_verts.push(vert);
+                                        let end_idx = faces_start_idx + vert_count as usize;
+                                        for vert in &face_info.faces[faces_start_idx..end_idx] {
+                                            poly_verts.push(*vert as usize);
                                             idx_into_cell += 1;
                                         }
                                         idx_into_cell += 1;
                                         faces_count -= 1;
                                     }
-                                    assert_eq!(n, faces_start_idx + 1);
+                                    assert_eq!(n, faces_start_idx);
                                 };
                                 is_polyhedra = true;
                                 CellType::Polyhedron

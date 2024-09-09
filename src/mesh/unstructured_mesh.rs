@@ -282,13 +282,13 @@ impl<T: Real> Mesh<T> {
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
         assert!(!types.contains(&CellType::Polyhedron));
-        // Todo: for proper Polyhedron support, we should support parsing the data here
-        //  and generating the requisite data similar to vtk.rs line 357
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
-            polyhedra_face_counts: Default::default(),
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -352,13 +352,13 @@ impl<T: Real> Mesh<T> {
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
         assert!(!types.contains(&CellType::Polyhedron));
-        // Todo: for proper Polyhedron support, we should support parsing the data here
-        //  and generating the requisite data similar to vtk.rs line 357
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
-            polyhedra_face_counts: Default::default(),
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -447,13 +447,13 @@ impl<T: Real> Mesh<T> {
             .collect();
 
         assert!(!types.contains(&CellType::Polyhedron));
-        // Todo: for proper Polyhedron support, we should support parsing the data here
-        //  and generating the requisite data similar to vtk.rs line 357
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: flatk::Clumped::from_clumped_offsets(chunk_offsets, offsets, cells),
             types,
-            polyhedra_face_counts: Default::default(),
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -539,13 +539,13 @@ impl<T: Real> Mesh<T> {
             .collect();
 
         assert!(!types.contains(&CellType::Polyhedron));
-        // Todo: for proper Polyhedron support, we should support parsing the data here
-        //  and generating the requisite data similar to vtk.rs line 357
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
-            polyhedra_face_counts: Default::default(),
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -857,7 +857,7 @@ impl<T: Real> From<super::TriMesh<T>> for Mesh<T> {
                 flatk::Chunked3::from_array_vec(indices.into_vec()).into_inner(),
             ),
             types,
-            polyhedra_face_counts: flatk::Chunks::from_offsets,
+            polyhedra_face_counts: Chunked::from_sizes(vec![0], vec![]),
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,
@@ -888,6 +888,7 @@ impl<T: Real> From<super::TetMesh<T>> for Mesh<T> {
                 flatk::Chunked4::from_array_vec(indices.into_vec()).into_inner(),
             ),
             types,
+            polyhedra_face_counts: Chunked::from_sizes(vec![0], vec![]),
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,
