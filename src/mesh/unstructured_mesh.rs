@@ -39,9 +39,8 @@ impl CellType {
             CellType::Pyramid => 5,
             CellType::Hexahedron => 8,
             CellType::Wedge => 6,
-            CellType::Polyhedron => {
-                panic!()
-            }
+            /// Note, this must be explicitly handled by calling "num_polyhedra_verts"
+            CellType::Polyhedron => 0,
         }
     }
     pub fn num_tri_faces(&self) -> usize {
@@ -272,6 +271,7 @@ impl<T: Real> Mesh<T> {
         types: Vec<CellType>,
     ) -> Mesh<T> {
         assert_eq!(cells.len(), types.len());
+        assert!(!types.contains(&CellType::Polyhedron));
         let sizes: Vec<_> = types.iter().map(CellType::num_verts).collect();
         let counts: Vec<_> = sizes
             .iter()
@@ -281,7 +281,6 @@ impl<T: Real> Mesh<T> {
         let cells = cells.into_iter().flatten().collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
-        assert!(!types.contains(&CellType::Polyhedron));
         let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
 
         Mesh {
@@ -341,6 +340,24 @@ impl<T: Real> Mesh<T> {
         )
     }
 
+    /// Same as [`from_cells_counts_and_types`] but
+    /// allows cells/types to contain polyhedra
+    pub fn from_cells_counts_types_and_polyfaces(
+        verts: impl Into<Vec<[T; 3]>>,
+        cells: impl Into<Vec<usize>>,
+        counts: impl AsRef<[usize]>,
+        types: impl Into<Vec<CellType>>,
+        polyfaces: Chunked<Vec<u16>>,
+    ) -> Mesh<T> {
+        Self::from_cells_counts_types_and_polyfaces_impl(
+            verts.into(),
+            cells.into(),
+            counts.as_ref(),
+            types.into(),
+            polyfaces,
+        )
+    }
+
     // Non-generic implementation of the `from_cells_counts_and_types` method.
     fn from_cells_counts_and_types_impl(
         verts: Vec<[T; 3]>,
@@ -348,10 +365,42 @@ impl<T: Real> Mesh<T> {
         counts: &[usize],
         types: Vec<CellType>,
     ) -> Mesh<T> {
+        assert!(!types.contains(&CellType::Polyhedron));
         let sizes: Vec<_> = types.iter().map(CellType::num_verts).collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
-        assert!(!types.contains(&CellType::Polyhedron));
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
+        Mesh {
+            vertex_positions: IntrinsicAttribute::from_vec(verts),
+            indices: clumped_indices,
+            types,
+            polyhedra_face_counts,
+            vertex_attributes: AttribDict::new(),
+            cell_attributes: AttribDict::new(),
+            cell_vertex_attributes: AttribDict::new(),
+            attribute_value_cache: AttribValueCache::with_hasher(Default::default()),
+        }
+    }
+
+    // Non-generic implementation of the `from_cells_counts_types_and_polyfaces` method.
+    fn from_cells_counts_types_and_polyfaces_impl(
+        verts: Vec<[T; 3]>,
+        cells: Vec<usize>,
+        counts: &[usize],
+        types: Vec<CellType>,
+        polyfaces: Chunked<Vec<u16>>,
+    ) -> Mesh<T> {
+        let sizes: Vec<_> = types
+            .iter()
+            .enumerate()
+            .map(|(idx, t)| match t {
+                CellType::Polyhedron => polyfaces[idx].iter().map(|c| *c as usize).sum(),
+                _ => t.num_verts(),
+            })
+            .collect();
+        let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
+
         let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
 
         Mesh {
@@ -427,6 +476,7 @@ impl<T: Real> Mesh<T> {
         mut chunk_offsets: Vec<usize>,
         types: Vec<CellType>,
     ) -> Mesh<T> {
+        assert!(!types.contains(&CellType::Polyhedron));
         // Make sure offsets is correctly structured (always contains a 0 as required by `from_clumped_offsets` below).
         if chunk_offsets.is_empty() {
             chunk_offsets.push(0);
@@ -446,7 +496,6 @@ impl<T: Real> Mesh<T> {
             })
             .collect();
 
-        assert!(!types.contains(&CellType::Polyhedron));
         let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
 
         Mesh {

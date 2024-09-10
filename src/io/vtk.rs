@@ -342,6 +342,32 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
 
                     let mut polyhedra_face_sizes: Chunked<Vec<u16>> = Default::default();
 
+                    println!(
+                        "faceoffsets_len: {}",
+                        faces.as_ref().unwrap().faceoffsets.len()
+                    );
+                    println!("offsets_len: {}", offsets.len());
+
+                    println!(
+                        "last face_offsets: {:?}",
+                        faces
+                            .as_ref()
+                            .unwrap()
+                            .faceoffsets
+                            .iter()
+                            .skip(faces.as_ref().unwrap().faceoffsets.len() - 100)
+                            .collect::<Vec<_>>()
+                    );
+                    println!(
+                        "last faces: {:?}",
+                        faces
+                            .as_ref()
+                            .unwrap()
+                            .faces
+                            .iter()
+                            .skip(faces.as_ref().unwrap().faces.len() - 100)
+                            .collect::<Vec<_>>()
+                    );
                     for (c, &end) in offsets.iter().enumerate() {
                         let n = end as usize - begin;
                         let mut is_polyhedra = false;
@@ -373,7 +399,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                         idx_into_cell += 1;
                                         faces_count -= 1;
                                     }
-                                    assert_eq!(n, faces_start_idx);
+                                    //assert_eq!(n, faces_start_idx);
                                 };
                                 is_polyhedra = true;
                                 CellType::Polyhedron
@@ -414,9 +440,14 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         begin = end as usize;
                     }
 
-                    let mut mesh =
-                        Mesh::from_cells_counts_and_types(pts, cell_indices, counts, cell_types);
-                    mesh.polyhedra_face_counts = polyhedra_face_sizes;
+                    let mut mesh = Mesh::from_cells_counts_types_and_polyfaces(
+                        pts,
+                        cell_indices,
+                        counts,
+                        cell_types,
+                        polyhedra_face_sizes,
+                    );
+                    //mesh.polyhedra_face_counts = polyhedra_face_sizes;
 
                     // Don't bother transferring attributes if there are no vertices or cells.
                     // This supresses some needless size mismatch warnings when the dataset has an

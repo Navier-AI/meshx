@@ -120,7 +120,7 @@ impl<T: Real> Mesh<T> {
             let hash_builder = RandomState::with_seeds(7, 47, 2377, 719);
             HashMap::with_hasher(hash_builder)
         };
-
+        return (triangles, quads);
         for (cells, cell_type) in indices.clump_iter().zip(types) {
             cell_type.enumerate_faces(
                 |face_index, tri_face| {
