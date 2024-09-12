@@ -39,7 +39,7 @@ impl CellType {
             CellType::Pyramid => 5,
             CellType::Hexahedron => 8,
             CellType::Wedge => 6,
-            /// Note, this must be explicitly handled by calling "num_polyhedra_verts"
+            /// Note, this must be explicitly handled by using the polyhedron_face_counts
             CellType::Polyhedron => 0,
         }
     }
@@ -119,6 +119,7 @@ impl CellType {
                 }
             }
             CellType::Polyhedron => {
+                //Todo
                 panic!()
             }
         }
@@ -140,10 +141,21 @@ impl CellType {
     /// * `quad_handler` - A closure that handles quadrilateral faces. It receives two arguments:
     ///   - `usize`: The index of the quadrilateral face.
     ///   - `&[usize; 4]`: A reference to an array of 4 vertex indices defining the quadrilateral face.
-    pub fn enumerate_faces<F, G>(&self, mut tri_handler: F, mut quad_handler: G)
-    where
+    ///
+    /// * `ngon_handler` - A closure that handles quadrilateral faces. It receives two arguments:
+    ///   - `usize`: The start index of the face.
+    ///   - `&Vec<usize>`: A reference to an array of 4 vertex indices defining the ngon's face.
+    pub fn enumerate_faces<F, G, H>(
+        &self,
+        mut tri_handler: F,
+        mut quad_handler: G,
+        mut ngon_handler: H,
+        clump_idx: usize,
+        poly_faces: &Chunked<Vec<u16>>,
+    ) where
         F: FnMut(usize, &[usize; 3]),
         G: FnMut(usize, &[usize; 4]),
+        H: FnMut(usize, &Vec<usize>),
     {
         match self {
             CellType::Line | CellType::Triangle | CellType::Quad => {}
@@ -171,8 +183,16 @@ impl CellType {
                     quad_handler(quad_index + Self::WEDGE_TRIS.len(), face_vertices);
                 }
             }
+            // Note that instead of passing an index that refers to the nth face, we instead pass
+            // an offset that *indexes* to the start of that face. This is more efficient
+            // then trying to deal with an nth face when the faces have different numbers of vertices.
             CellType::Polyhedron => {
-                panic!()
+                let mut start = 0;
+                for verts_in_face in poly_faces[clump_idx] {
+                    let face = (start..start + verts_in_face).collect::<Vec<usize>>();
+                    ngon_handler(start, &face);
+                    start += verts_in_face;
+                }
             }
         }
     }
