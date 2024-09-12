@@ -63,7 +63,7 @@ impl PartialEq for Polygon {
 
 /// A utility function to index a slice using four indices, creating a new array of 4
 /// corresponding entries of the slice.
-fn ngon_at<T>(slice: &[T], ngon: &Vec<usize>) -> Vec<T> {
+fn ngon_at<T: Copy>(slice: &[T], ngon: &Vec<usize>) -> Vec<T> {
     ngon.iter().map(|v| slice[*v]).collect::<Vec<_>>()
 }
 
@@ -275,12 +275,12 @@ impl<T: Real> Mesh<T> {
     where
         F1: FnMut(&TetFace) -> bool,
         F2: FnMut(&QuadFace) -> bool,
-        F3: FnMut(u16, &Polygon) -> bool,
+        F3: FnMut(&(u16, Polygon)) -> bool,
     {
         let (triangles, quads, ngons) =
             Self::surface_ngon_set(&self.indices, self.types.iter(), poly_faces);
 
-        let total = triangles.len() + quads.len() + ngons.iter().map(|m| m.1.len()).sum();
+        let total = triangles.len() + quads.len() + ngons.iter().map(|m| m.1.len()).sum::<usize>();
 
         let mut vertices = Vec::new();
         let mut offsets = Vec::with_capacity(total + 1);
@@ -312,13 +312,13 @@ impl<T: Real> Mesh<T> {
 
         for (edges, face) in ngons
             .into_iter()
-            .flat_map(|(edges, faces)| faces.iter().map(|(_, face)| (edges, face)))
+            .flat_map(|(edges, faces)| faces.into_iter().map(move |(_, face)| (edges, face)))
             .filter(ngon_filter)
         {
             vertices.extend_from_slice(&face.ngon);
             offsets.push(vertices.len());
             cell_indices.push(face.cell_idx);
-            cell_face_indices.push(face.face_idx as usize);
+            cell_face_indices.push(face.start_idx as usize);
             cell_types.push(face.cell_type);
         }
 
@@ -332,7 +332,15 @@ impl<T: Real> Mesh<T> {
     }
 
     pub fn surface_mesh(&self) -> PolyMesh<T> {
-        self.surface_trimesh_with_mapping_and_filter(None, None, None, None, |_| true, |_| true)
+        self.surface_trimesh_with_mapping_and_filter(
+            None,
+            None,
+            None,
+            None,
+            |_| true,
+            |_| true,
+            |_| true,
+        )
     }
 
     pub fn surface_trimesh_with_mapping(
@@ -349,7 +357,7 @@ impl<T: Real> Mesh<T> {
             original_tet_face_index_name,
             |_| true,
             |_| true,
-            (),
+            |_| true,
         )
     }
 
@@ -361,7 +369,7 @@ impl<T: Real> Mesh<T> {
         original_tet_face_index_name: Option<&str>,
         tri_filter: impl FnMut(&TetFace) -> bool,
         quad_filter: impl FnMut(&QuadFace) -> bool,
-        ngon_filter: impl FnMut(&QuadFace) -> bool,
+        ngon_filter: impl FnMut(&(u16, Polygon)) -> bool,
     ) -> PolyMesh<T> {
         // Get the surface topology.
         let (mut topo, mut offsets, cell_indices, cell_face_indices, cell_types) = self
@@ -427,13 +435,17 @@ impl<T: Real> Mesh<T> {
         let mut tet_vertex_index = Vec::new();
         if original_tet_vertex_index_name.is_some() {
             tet_vertex_index.reserve(topo.len());
-            for (&cell_idx, &cell_face_idx, cell_type) in cell_indices
+            for (&cell_idx, &cell_face_idx, cell_type, clump_idx) in cell_indices
                 .iter()
                 .zip(cell_face_indices.iter())
-                .zip(cell_types.iter())
-                .map(|((a, b), c)| (a, b, c))
+                .zip(cell_types.iter().enumerate())
+                .map(|((a, b), (i, c))| (a, b, c, i))
             {
-                for &i in cell_type.nth_face_vertices(cell_face_idx) {
+                for i in cell_type.nth_face_vertices(
+                    cell_face_idx,
+                    clump_idx,
+                    &self.polyhedra_face_counts,
+                ) {
                     tet_vertex_index.push(self.cell_vertex(cell_idx, i));
                 }
             }
@@ -446,13 +458,17 @@ impl<T: Real> Mesh<T> {
             face_vertex_attributes.insert(
                 name.to_string(),
                 attrib.promote_with(|new, old| {
-                    for (&cell_idx, &cell_face_idx, cell_type) in cell_indices
+                    for (&cell_idx, &cell_face_idx, cell_type, clump_idx) in cell_indices
                         .iter()
                         .zip(cell_face_indices.iter())
-                        .zip(cell_types.iter())
-                        .map(|((a, b), c)| (a, b, c))
+                        .zip(cell_types.iter().enumerate())
+                        .map(|((a, b), (i, c))| (a, b, c, i))
                     {
-                        for &i in cell_type.nth_face_vertices(cell_face_idx) {
+                        for i in cell_type.nth_face_vertices(
+                            cell_face_idx,
+                            clump_idx,
+                            &self.polyhedra_face_counts,
+                        ) {
                             let cell_vtx_idx = self.cell_vertex(cell_idx, i);
                             new.push_cloned(old.get(Index::from(cell_vtx_idx).unwrap()));
                         }

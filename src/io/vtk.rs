@@ -387,6 +387,10 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     let mut faces_count = face_info.faces[cell_start_idx];
                                     let faces_start_idx = cell_start_idx + 1;
                                     let mut idx_into_cell = 0;
+                                    if faces_count == 0 {
+                                        println!("found empty cell at {}", cell_start_idx);
+                                        continue;
+                                    }
                                     while faces_count > 0 {
                                         let vert_count =
                                             face_info.faces[faces_start_idx + idx_into_cell];

@@ -97,30 +97,58 @@ impl CellType {
 
     /// Utility function for getting the cell's nth face's vertices.
     /// nth as defined by [`enumerate_faces`]
-    pub fn nth_face_vertices(&self, nth_face: usize) -> std::slice::Iter<usize> {
+    pub fn nth_face_vertices(
+        &self,
+        nth_face: usize,
+        clump_idx: usize,
+        poly_faces: &Chunked<Vec<u16>>,
+    ) -> Vec<usize> {
         match self {
-            CellType::Line => CellType::EMPTY.iter(),
-            CellType::Triangle => CellType::EMPTY.iter(),
-            CellType::Quad => CellType::EMPTY.iter(),
-            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face].iter(),
+            CellType::Line => vec![],
+            CellType::Triangle => vec![],
+            CellType::Quad => vec![],
+            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face]
+                .iter()
+                .copied()
+                .collect(),
             CellType::Pyramid => {
                 if let Some(face) = CellType::PYRAMID_TRIS.get(nth_face) {
-                    face.iter()
+                    face.iter().copied().collect()
                 } else {
-                    CellType::PYRAMID_QUAD.iter()
+                    CellType::PYRAMID_QUAD.iter().copied().collect()
                 }
             }
-            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face].iter(),
+            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face]
+                .iter()
+                .copied()
+                .collect(),
             CellType::Wedge => {
                 if let Some(face) = CellType::WEDGE_TRIS.get(nth_face) {
-                    face.iter()
+                    face.iter().copied().collect()
                 } else {
-                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()].iter()
+                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()]
+                        .iter()
+                        .copied()
+                        .collect()
                 }
             }
+            // Note that instead of passing an index that refers to the nth face, we instead pass
+            // an offset that *indexes* to the start of that face. This is more efficient
+            // then trying to deal with an nth face when the faces have different numbers of vertices.
             CellType::Polyhedron => {
-                //Todo
-                panic!()
+                // This could probably be better, but the only way around it would be to store offsets
+                // in the chunked vecs instead of face counts.
+                let verts_count = &poly_faces[clump_idx];
+                let mut s = 0;
+                let mut x = 0;
+                let mut i = 0;
+                while x <= nth_face {
+                    let face_size = verts_count[i];
+                    s = x;
+                    x += face_size as usize;
+                    i += 1;
+                }
+                (s..x).collect()
             }
         }
     }
@@ -188,9 +216,11 @@ impl CellType {
             // then trying to deal with an nth face when the faces have different numbers of vertices.
             CellType::Polyhedron => {
                 let mut start = 0;
-                for verts_in_face in poly_faces[clump_idx] {
-                    let face = (start..start + verts_in_face).collect::<Vec<usize>>();
-                    ngon_handler(start, &face);
+                for verts_in_face in poly_faces[clump_idx].iter() {
+                    let face = (start..start + verts_in_face)
+                        .map(|x| x as usize)
+                        .collect::<Vec<usize>>();
+                    ngon_handler(start as usize, &face);
                     start += verts_in_face;
                 }
             }
