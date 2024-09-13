@@ -8,7 +8,7 @@ use crate::topology::{
 };
 use ahash::AHashMap as HashMap;
 use ahash::RandomState;
-use flatk::Chunked;
+use flatk::{Chunked, Set};
 
 /// A polygon with N sides, whose indices are sorted
 #[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -186,8 +186,9 @@ impl<T: Real> Mesh<T> {
 
         let mut poly_maps: HashMap<u16, HashMap<SortedNgon, Polygon>> = HashMap::default();
 
-        //return (triangles, quads);
         for (idx, (cells, cell_type)) in indices.clump_iter().zip(types).enumerate() {
+            //println!("found {:?} {:?} cells", cells.len(), cell_type);
+
             cell_type.enumerate_faces(
                 // The three closures are essentially the same, just removing all duplicates.
                 |face_index, tri_face| {
@@ -223,10 +224,12 @@ impl<T: Real> Mesh<T> {
                     }
                 },
                 |face_start_index, ngon| {
+                    //println!("ngon_cells: {}", cells[0].len());
                     for (i, cell) in cells.iter().enumerate() {
                         let face = Polygon {
                             ngon: ngon_at(cell, ngon),
-                            cell_idx: i,
+                            // Note that this index is the "Chunk" index, because each ngon gets its own chunk
+                            cell_idx: idx,
                             start_idx: face_start_index as u16,
                             cell_type: *cell_type,
                         };
@@ -310,6 +313,7 @@ impl<T: Real> Mesh<T> {
             cell_types.push(face.cell_type);
         }
 
+        let mut len = 0;
         for (edges, face) in ngons
             .into_iter()
             .flat_map(|(edges, faces)| faces.into_iter().map(move |(_, face)| (edges, face)))
@@ -320,7 +324,10 @@ impl<T: Real> Mesh<T> {
             cell_indices.push(face.cell_idx);
             cell_face_indices.push(face.start_idx as usize);
             cell_types.push(face.cell_type);
+            len += 1;
         }
+
+        println!("ngon faces extracted: {}", len);
 
         (
             vertices,

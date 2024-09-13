@@ -14,6 +14,7 @@ use crate::utils::slice::apply_permutation_with_seen;
 use crate::Real;
 use ahash::{HashMap, HashMapExt};
 use flatk::{Chunked, ClumpedView, GetOffset, IntoValues, Offsets, Set, View, ViewMut};
+use std::convert::TryFrom;
 
 /// A marker for the type of cell contained in a Mesh.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -215,12 +216,32 @@ impl CellType {
             // an offset that *indexes* to the start of that face. This is more efficient
             // then trying to deal with an nth face when the faces have different numbers of vertices.
             CellType::Polyhedron => {
+                // println!(
+                //     "executing on polyhedronc cell; faces: {:?}",
+                //     poly_faces[clump_idx].len()
+                // );
                 let mut start = 0;
                 for verts_in_face in poly_faces[clump_idx].iter() {
                     let face = (start..start + verts_in_face)
                         .map(|x| x as usize)
                         .collect::<Vec<usize>>();
-                    ngon_handler(start as usize, &face);
+                    match face.len() {
+                        3 => {
+                            tri_handler(
+                                start as usize,
+                                <&[usize; 3]>::try_from(face.as_slice()).unwrap(),
+                            );
+                        }
+                        4 => {
+                            quad_handler(
+                                start as usize,
+                                <&[usize; 4]>::try_from(face.as_slice()).unwrap(),
+                            );
+                        }
+                        _ => {
+                            ngon_handler(start as usize, &face);
+                        }
+                    }
                     start += verts_in_face;
                 }
             }
@@ -451,13 +472,11 @@ impl<T: Real> Mesh<T> {
             .collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
-        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
-
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
-            polyhedra_face_counts,
+            polyhedra_face_counts: polyfaces,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),

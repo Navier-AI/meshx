@@ -368,6 +368,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             .skip(faces.as_ref().unwrap().faces.len() - 100)
                             .collect::<Vec<_>>()
                     );
+                    let mut polyhedra = 0;
                     for (c, &end) in offsets.iter().enumerate() {
                         let n = end as usize - begin;
                         let mut is_polyhedra = false;
@@ -377,9 +378,8 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             model::CellType::Triangle if n == 3 => CellType::Triangle,
                             model::CellType::Tetra if n == 4 => CellType::Tetrahedron,
                             model::CellType::Pyramid if n == 5 => CellType::Pyramid,
-                            model::CellType::Hexahedron if n == 8 => CellType::Hexahedron,
-                            model::CellType::Wedge if n == 6 => CellType::Wedge,
-                            model::CellType::Wedge if n == 6 => CellType::Wedge,
+                            model::CellType::Hexahedron => CellType::Hexahedron,
+                            model::CellType::Wedge => CellType::Wedge,
                             model::CellType::Polyhedron => {
                                 if let Some(face_info) = faces.as_ref() {
                                     // Process face data for polyhedron
@@ -389,6 +389,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     let mut idx_into_cell = 0;
                                     if faces_count == 0 {
                                         println!("found empty cell at {}", cell_start_idx);
+                                        begin = end as usize;
                                         continue;
                                     }
                                     while faces_count > 0 {
@@ -406,9 +407,12 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     //assert_eq!(n, faces_start_idx);
                                 };
                                 is_polyhedra = true;
+                                polyhedra += 1;
+
                                 CellType::Polyhedron
                             }
                             _ => {
+                                println!("Adding: {:?} to failed to load cell list", types[c]);
                                 cell_type_list.insert(types[c] as usize);
                                 // Not a valid cell type, skip it.
                                 begin = end as usize;
@@ -423,7 +427,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             // Start a new block.
                             cell_types.push(cell_type);
                             counts.push(1);
-
+                            println!("pushed: {:?} to cell_faces", face_sizes);
                             polyhedra_face_sizes.push(face_sizes)
                         } else if let Some(last) = counts.last_mut() {
                             *last += 1;
@@ -443,6 +447,8 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
 
                         begin = end as usize;
                     }
+
+                    println!("found polyhedra: {}", polyhedra);
 
                     let mut mesh = Mesh::from_cells_counts_types_and_polyfaces(
                         pts,
@@ -475,6 +481,13 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                 }));
                 if cell_type_list.len() > 0 {
                     use num_traits::FromPrimitive;
+                    panic!(
+                        "{:?}",
+                        cell_type_list
+                            .into_iter()
+                            .map(|c| model::CellType::from_usize(c).unwrap())
+                            .collect::<Vec<model::CellType>>()
+                    );
                     return Err(Error::UnsupportedCellTypes(
                         cell_type_list
                             .into_iter()
