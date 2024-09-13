@@ -140,16 +140,22 @@ impl CellType {
                 // This could probably be better, but the only way around it would be to store offsets
                 // in the chunked vecs instead of face counts.
                 let verts_count = &poly_faces[clump_idx];
-                let mut s = 0;
-                let mut x = 0;
+                let mut start = 0;
+                let mut end = 0;
                 let mut i = 0;
-                while x <= nth_face {
+                while end <= nth_face {
                     let face_size = verts_count[i];
-                    s = x;
-                    x += face_size as usize;
+                    start = end;
+                    end += face_size as usize;
                     i += 1;
                 }
-                (s..x).collect()
+                println!(
+                    "Range: {:?}, full_poly: {:?}, idx: {}",
+                    start..end,
+                    &verts_count,
+                    nth_face
+                );
+                (start..end).collect()
             }
         }
     }
@@ -216,10 +222,6 @@ impl CellType {
             // an offset that *indexes* to the start of that face. This is more efficient
             // then trying to deal with an nth face when the faces have different numbers of vertices.
             CellType::Polyhedron => {
-                // println!(
-                //     "executing on polyhedronc cell; faces: {:?}",
-                //     poly_faces[clump_idx].len()
-                // );
                 let mut start = 0;
                 for verts_in_face in poly_faces[clump_idx].iter() {
                     let face = (start..start + verts_in_face)
@@ -239,6 +241,10 @@ impl CellType {
                             );
                         }
                         _ => {
+                            println!(
+                                "executing on polyhedronc cell; faces: {:?}",
+                                poly_faces[clump_idx].len()
+                            );
                             ngon_handler(start as usize, &face);
                         }
                     }

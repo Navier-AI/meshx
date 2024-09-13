@@ -412,7 +412,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                 CellType::Polyhedron
                             }
                             _ => {
-                                println!("Adding: {:?} to failed to load cell list", types[c]);
+                                //println!("Adding: {:?} to failed to load cell list", types[c]);
                                 cell_type_list.insert(types[c] as usize);
                                 // Not a valid cell type, skip it.
                                 begin = end as usize;
@@ -427,7 +427,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                             // Start a new block.
                             cell_types.push(cell_type);
                             counts.push(1);
-                            println!("pushed: {:?} to cell_faces", face_sizes);
+                            //println!("pushed: {:?} to cell_faces", face_sizes);
                             polyhedra_face_sizes.push(face_sizes)
                         } else if let Some(last) = counts.last_mut() {
                             *last += 1;
