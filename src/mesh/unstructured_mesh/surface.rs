@@ -61,7 +61,7 @@ impl PartialEq for Polygon {
     }
 }
 
-/// A utility function to index a slice using four indices, creating a new array of 4
+/// A utility function to index a slice using the input ngon indices, creating a new array of
 /// corresponding entries of the slice.
 fn ngon_at<T: Copy>(slice: &[T], ngon: &Vec<usize>) -> Vec<T> {
     ngon.iter().map(|v| slice[*v]).collect::<Vec<_>>()
@@ -209,12 +209,14 @@ impl<T: Real> Mesh<T> {
                 },
                 |face_index, quad_face| {
                     for (i, cell) in cells.iter().enumerate() {
+                        // println!("quadface_cell: {:?} face: {:?}", cell, quad_face);
                         let face = QuadFace {
                             quad: quad_at(cell, quad_face),
                             cell_index: i,
                             face_index: face_index as u16,
                             cell_type: *cell_type,
                         };
+                        // println!("qface: {:?}", face.quad.clone());
 
                         let key = SortedQuad::new(face.quad);
 
@@ -224,24 +226,24 @@ impl<T: Real> Mesh<T> {
                     }
                 },
                 |face_start_index, ngon| {
-                    //println!("ngon_cells: {}", cells[0].len());
-                    for (i, cell) in cells.iter().enumerate() {
-                        let face = Polygon {
-                            ngon: ngon_at(cell, ngon),
-                            // Note that this index is the "Chunk" index, because each ngon gets its own chunk
-                            cell_idx: idx,
-                            start_idx: face_start_index as u16,
-                            cell_type: *cell_type,
-                        };
+                    let cell = &cells[0];
+                    // println!("cell: {:?} ngon: {:?}", cell, ngon);
+                    let face = Polygon {
+                        ngon: ngon_at(&cell, ngon),
+                        // Note that this index is the "Chunk" index, because each ngon gets its own chunk
+                        cell_idx: idx,
+                        start_idx: face_start_index as u16,
+                        cell_type: *cell_type,
+                    };
+                    // println!("face: {:?}", face.ngon.clone());
 
-                        let key = SortedNgon::new(face.ngon.clone());
-                        let ngons = poly_maps.entry(ngon.len() as u16).or_insert({
-                            let hash_builder = RandomState::with_seeds(7, 47, 2377, 719);
-                            HashMap::with_hasher(hash_builder)
-                        });
-                        if ngons.remove(&key).is_none() {
-                            ngons.insert(key, face);
-                        }
+                    let key = SortedNgon::new(face.ngon.clone());
+                    let ngons = poly_maps.entry(ngon.len() as u16).or_insert({
+                        let hash_builder = RandomState::with_seeds(7, 47, 2377, 719);
+                        HashMap::with_hasher(hash_builder)
+                    });
+                    if ngons.remove(&key).is_none() {
+                        ngons.insert(key, face);
                     }
                 },
                 idx,
@@ -324,10 +326,13 @@ impl<T: Real> Mesh<T> {
             cell_indices.push(face.cell_idx);
             cell_face_indices.push(face.start_idx as usize);
             cell_types.push(face.cell_type);
+            if face.cell_type != CellType::Polyhedron {
+                panic!()
+            }
             len += 1;
         }
 
-        println!("ngon faces extracted: {}", len);
+        println!("ngon faces extracted!!: {}", len);
 
         (
             vertices,
@@ -438,6 +443,18 @@ impl<T: Real> Mesh<T> {
             );
         }
 
+        let mut len = 0;
+        assert_eq!(cell_indices.len(), cell_face_indices.len());
+        assert_eq!(cell_face_indices.len(), cell_types.len());
+
+        for cell in cell_types.iter() {
+            if *cell == CellType::Polyhedron {
+                len += 1;
+            }
+        }
+        println!("found {} polyhedron cells before the zip iterators", len);
+
+        let mut len = 0;
         // Mapping from face vertex index to its original tet vertex index.
         let mut tet_vertex_index = Vec::new();
         if original_tet_vertex_index_name.is_some() {
@@ -447,7 +464,12 @@ impl<T: Real> Mesh<T> {
                 .zip(cell_face_indices.iter())
                 .zip(cell_types.iter().enumerate())
                 .map(|((a, b), (i, c))| (a, b, c, i))
+            //(cell_indices, cell_face_indices), (enumerated, celltypes)
             {
+                if *cell_type == CellType::Polyhedron {
+                    len += 1;
+                }
+                println!("did some stuff");
                 for i in cell_type.nth_face_vertices(
                     cell_face_idx,
                     clump_idx,
@@ -457,7 +479,7 @@ impl<T: Real> Mesh<T> {
                 }
             }
         }
-
+        println!("ngon faces nth_face_vertices was called on: {}", len);
         // Transfer face vertex attributes from tetmesh.
         let mut face_vertex_attributes: AttribDict<FaceVertexIndex> = AttribDict::new();
 

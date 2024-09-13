@@ -387,21 +387,38 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     let mut faces_count = face_info.faces[cell_start_idx];
                                     let faces_start_idx = cell_start_idx + 1;
                                     let mut idx_into_cell = 0;
+
+                                    // println!(
+                                    //     "Cell #{}: start_idx={}, faces_count={}",
+                                    //     c, cell_start_idx, faces_count
+                                    // );
+
                                     if faces_count == 0 {
-                                        println!("found empty cell at {}", cell_start_idx);
+                                        println!("Empty cell at index {}", cell_start_idx);
                                         begin = end as usize;
                                         continue;
                                     }
+
+                                    // println!(
+                                    //     "full cell: {:?}",
+                                    //     &face_info.faces[cell_start_idx..(cell_start_idx + n)]
+                                    // );
+
                                     while faces_count > 0 {
                                         let vert_count =
                                             face_info.faces[faces_start_idx + idx_into_cell];
                                         face_sizes.push(vert_count as u16);
-                                        let end_idx = faces_start_idx + vert_count as usize;
-                                        for vert in &face_info.faces[faces_start_idx..end_idx] {
+                                        idx_into_cell += 1;
+                                        let start_idx = faces_start_idx + idx_into_cell;
+                                        let end_idx = start_idx + vert_count as usize;
+                                        // println!(
+                                        //     "verts: {:?}",
+                                        //     &face_info.faces[start_idx..end_idx]
+                                        // );
+                                        for vert in &face_info.faces[start_idx..end_idx] {
                                             poly_verts.push(*vert as usize);
                                             idx_into_cell += 1;
                                         }
-                                        idx_into_cell += 1;
                                         faces_count -= 1;
                                     }
                                     //assert_eq!(n, faces_start_idx);

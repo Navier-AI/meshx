@@ -241,10 +241,11 @@ impl CellType {
                             );
                         }
                         _ => {
-                            println!(
-                                "executing on polyhedronc cell; faces: {:?}",
-                                poly_faces[clump_idx].len()
-                            );
+                            // println!(
+                            //     "executing on polyhedronc cell; faces: {:?}, face: {:?}",
+                            //     poly_faces[clump_idx].len(),
+                            //     &face
+                            // );
                             ngon_handler(start as usize, &face);
                         }
                     }
