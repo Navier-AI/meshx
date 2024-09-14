@@ -73,26 +73,31 @@ pub trait MeshExtractor<T: crate::Real> {
  * IO calls for unstructured Meshes
  */
 
-/// Load a tetrahedral mesh from a given file.
-pub fn load_mesh<T: Real, P: AsRef<Path>>(file: P) -> Result<Mesh<T>, Error> {
-    load_mesh_impl(file.as_ref())
-}
+pub fn load_mesh_from_content<T: Real>(
+    path: impl AsRef<Path>,
+    content: &[u8],
+) -> Result<Mesh<T>, Error> {
+    let path = path.as_ref();
 
-fn load_mesh_impl<T: Real>(file: &Path) -> Result<Mesh<T>, Error> {
-    match file.extension().and_then(|ext| ext.to_str()) {
+    match path.extension().and_then(|ext| ext.to_str()) {
         Some("vtk") | Some("vtu") | Some("pvtu") => {
-            let vtk = Vtk::import(file)?;
-            vtk.extract_mesh()
+            Vtk::import_from_contents(path, content)?.extract_mesh()
         }
         #[cfg(feature = "mshio")]
-        Some("msh") => {
-            let msh_bytes = std::fs::read(file)?;
-            let msh = mshio::parse_msh_bytes(msh_bytes.as_slice()).map_err(msh::MshError::from)?;
-            msh.extract_mesh()
-        }
+        Some("msh") => mshio::parse_msh_bytes(content)
+            .map_err(msh::MshError::from)?
+            .extract_mesh(),
         // NOTE: wavefront obj files don't support unstructured meshes.
         _ => Err(Error::UnsupportedFileFormat),
     }
+}
+
+/// Load a tetrahedral mesh from a given file.
+pub fn load_mesh<T: Real>(path: impl AsRef<Path>) -> Result<Mesh<T>, Error> {
+    let path = path.as_ref();
+    let content = std::fs::read(path)?;
+
+    load_mesh_from_content(path, &content)
 }
 
 /// Save a mesh to a file.
@@ -506,7 +511,6 @@ mod tests {
     }
 
     // Test that loading a vtu file works as expected.
-    #[cfg(feature = "binary_vtk")]
     #[test]
     fn tet_vtu() -> Result<(), Error> {
         use crate::mesh::TetMesh;

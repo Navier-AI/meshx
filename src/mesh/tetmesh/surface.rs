@@ -401,7 +401,7 @@ mod tests {
         let mesh = TetMesh::new(points, indices);
 
         let surf_topo = mesh.surface_topo();
-        let expected = vec![
+        let expected = [
             [0, 5, 4],
             [4, 5, 2],
             [0, 4, 2],
@@ -487,7 +487,7 @@ mod tests {
             [6, 5, 0, 1],
         ];
 
-        let expected_pos = vec![
+        let expected_pos = [
             [1.0, -1.0, 1.0],
             [-1.0, 1.0, 1.0],
             [-1.0, -1.0, 1.0],
@@ -513,9 +513,9 @@ mod tests {
             [3, 7, 5],
         ];
 
-        let expected_vtx_attrib = vec![1i32, 4, 2, 5, 3, 8, 6, 7];
+        let expected_vtx_attrib = [1i32, 4, 2, 5, 3, 8, 6, 7];
 
-        let expected_cell_attrib = vec![7u64, 9, 5, 3, 11, 1, 8, 10, 6, 4, 2, 0];
+        let expected_cell_attrib = [7u64, 9, 5, 3, 11, 1, 8, 10, 6, 4, 2, 0];
 
         let expected_cell_vtx_attrib = vec![
             [29usize, 31, 30],
@@ -542,7 +542,7 @@ mod tests {
         mesh.insert_attrib_data::<_, CellIndex>("cell_attrib", cell_data)
             .unwrap();
 
-        let cell_vtx_data = (0usize..mesh.num_cell_vertices() as usize).collect();
+        let cell_vtx_data = (0usize..mesh.num_cell_vertices()).collect();
         mesh.insert_attrib_data::<_, CellVertexIndex>("cell_vtx_attrib", cell_vtx_data)
             .unwrap();
 

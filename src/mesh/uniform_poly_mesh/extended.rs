@@ -452,14 +452,14 @@ mod tests {
         assert_eq!(face_iter.next(), Some(&[1usize, 3, 2]));
 
         // Verify dual topology
-        let vertex_faces = vec![vec![0], vec![0, 1], vec![0, 1], vec![1]];
-        for i in 0..vertex_faces.len() {
-            assert_eq!(trimesh.num_faces_at_vertex(i), vertex_faces[i].len());
+        let vertex_faces = [vec![0], vec![0, 1], vec![0, 1], vec![1]];
+        for (i, vertex_face) in vertex_faces.iter().enumerate() {
+            assert_eq!(trimesh.num_faces_at_vertex(i), vertex_face.len());
             let mut local_faces: Vec<usize> = (0..trimesh.num_faces_at_vertex(i))
                 .map(|j| trimesh.vertex_to_face(i, j).unwrap().into())
                 .collect();
             local_faces.sort();
-            assert_eq!(local_faces, vertex_faces[i]);
+            assert_eq!(local_faces, *vertex_face);
         }
     }
 

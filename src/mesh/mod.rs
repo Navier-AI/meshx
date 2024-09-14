@@ -1,3 +1,4 @@
+#[cfg(all(feature = "unstable", test))]
 mod bench;
 
 pub mod builder;

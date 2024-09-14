@@ -64,7 +64,7 @@ impl CheckedIndex<usize> for Index {
     #[inline]
     fn map<F: FnOnce(usize) -> usize>(self, f: F) -> Index {
         if self.is_valid() {
-            Index::new(f(self.0 as usize))
+            Index::new(f(self.0))
         } else {
             self
         }
@@ -73,7 +73,7 @@ impl CheckedIndex<usize> for Index {
     #[inline]
     fn map_or<U, F: FnOnce(usize) -> U>(self, default: U, f: F) -> U {
         if self.is_valid() {
-            f(self.0 as usize)
+            f(self.0)
         } else {
             default
         }

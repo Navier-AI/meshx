@@ -308,16 +308,15 @@ impl IndirectData {
     #[inline]
     pub fn clone_into_vec<T: AttributeValueHash>(&self) -> Result<Vec<T>, Error> {
         let result = Vec::with_capacity(self.len());
-        self.buf
+        let v = self
+            .buf
             .iter_as::<Irc<T>>()
             .unwrap()
-            .fold(Some(result), |mut acc, rc| {
-                if let Some(acc) = acc.as_mut() {
-                    acc.push((**rc).clone());
-                }
+            .fold(result, |mut acc, rc| {
+                acc.push((**rc).clone());
                 acc
-            })
-            .ok_or_else(|| Error::type_mismatch_from_buf::<Irc<T>, _>(&self.buf))
+            });
+        Ok(v)
     }
 
     /// Produce an iterator over the underlying data elements.

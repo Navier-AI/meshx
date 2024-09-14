@@ -135,7 +135,7 @@ fn new_option_f32h3(orig: Option<[f32; 3]>) -> Option<[f32h; 3]> {
                 }
             }
         }
-        return None;
+        None
     })
 }
 
@@ -520,7 +520,7 @@ pub fn convert_polymesh_to_obj_format<T: Real>(mesh: &PolyMesh<T>) -> Result<Obj
     let mtls = mesh
         .attrib::<FaceIndex>(MTL_ATTRIB_NAME)
         .and_then(|attrib| attrib.indirect_iter::<Material>())
-        .map(|iter| iter.map(|mtl| Some(mtl)))
+        .map(|iter| iter.map(Some))
         .into_iter()
         .flatten()
         .chain(std::iter::repeat(None));
@@ -697,6 +697,7 @@ mod tests {
         ]
     }
 
+    #[allow(clippy::excessive_precision)]
     fn make_normals() -> Vec<[f32; 3]> {
         vec![
             [0.577350318, -0.577350318, 0.577350318],
@@ -789,7 +790,7 @@ mod tests {
         let faces = make_polygons();
         let faces_flat: Vec<_> = faces
             .into_iter()
-            .flat_map(|poly| std::iter::once(poly.len()).chain(poly.into_iter()))
+            .flat_map(|poly| std::iter::once(poly.len()).chain(poly))
             .collect();
         let mut polymesh = PolyMesh::new(pts, &faces_flat);
 
