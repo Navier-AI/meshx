@@ -342,7 +342,6 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
 
                     let mut polyhedra_face_sizes: Chunked<Vec<u16>> = Default::default();
 
-                    let mut polyhedra = 0;
                     for (c, &end) in offsets.iter().enumerate() {
                         let n = end as usize - begin;
                         let mut is_polyhedra = false;
@@ -383,7 +382,6 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                                     }
                                 };
                                 is_polyhedra = true;
-                                polyhedra += 1;
 
                                 CellType::Polyhedron
                             }

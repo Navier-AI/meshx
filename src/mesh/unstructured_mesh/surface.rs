@@ -440,18 +440,9 @@ impl<T: Real> Mesh<T> {
             );
         }
 
-        let mut len = 0;
         assert_eq!(cell_indices.len(), cell_face_indices.len());
         assert_eq!(cell_face_indices.len(), cell_types.len());
 
-        for cell in cell_types.iter() {
-            if *cell == CellType::Polyhedron {
-                len += 1;
-            }
-        }
-        println!("found {} polyhedron cells before the zip iterators", len);
-
-        let mut len = 0;
         // Mapping from face vertex index to its original tet vertex index.
         let mut tet_vertex_index = Vec::new();
         if original_tet_vertex_index_name.is_some() {
@@ -463,10 +454,6 @@ impl<T: Real> Mesh<T> {
                 .map(|((a, b), (i, c))| (a, b, c, i))
             // (cell_indices, cell_face_indices), (enumerated, celltypes)
             {
-                if *cell_type == CellType::Polyhedron {
-                    len += 1;
-                }
-
                 for i in cell_type.nth_face_vertices(
                     cell_face_idx,
                     clump_idx,
