@@ -188,8 +188,6 @@ impl<T: Real> Mesh<T> {
         let mut poly_maps: HashMap<u16, HashMap<SortedNgon, Polygon>> = HashMap::default();
 
         for (idx, (cells, cell_type)) in indices.clump_iter().zip(types).enumerate() {
-            //println!("found {:?} {:?} cells", cells.len(), cell_type);
-
             cell_type.enumerate_faces(
                 // The three closures are essentially the same, just removing all duplicates.
                 |face_index, tri_face| {
@@ -210,14 +208,12 @@ impl<T: Real> Mesh<T> {
                 },
                 |face_index, quad_face| {
                     for (i, cell) in cells.iter().enumerate() {
-                        // println!("quadface_cell: {:?} face: {:?}", cell, quad_face);
                         let face = QuadFace {
                             quad: quad_at(cell, quad_face),
                             cell_index: i,
                             face_index: face_index as u16,
                             cell_type: *cell_type,
                         };
-                        // println!("qface: {:?}", face.quad.clone());
 
                         let key = SortedQuad::new(face.quad);
 
@@ -228,7 +224,6 @@ impl<T: Real> Mesh<T> {
                 },
                 |face_start_index, ngon| {
                     let cell = &cells[0];
-                    // println!("cell: {:?} ngon: {:?}", cell, ngon);
                     let face = Polygon {
                         ngon: ngon_at(cell, ngon),
                         // Note that this index is the "Chunk" index, because each ngon gets its own chunk
@@ -236,7 +231,6 @@ impl<T: Real> Mesh<T> {
                         start_idx: face_start_index as u16,
                         cell_type: *cell_type,
                     };
-                    // println!("face: {:?}", face.ngon.clone());
 
                     let key = SortedNgon::new(face.ngon.clone());
                     let ngons = poly_maps.entry(ngon.len() as u16).or_insert({
@@ -467,12 +461,12 @@ impl<T: Real> Mesh<T> {
                 .zip(cell_face_indices.iter())
                 .zip(cell_types.iter().enumerate())
                 .map(|((a, b), (i, c))| (a, b, c, i))
-            //(cell_indices, cell_face_indices), (enumerated, celltypes)
+            // (cell_indices, cell_face_indices), (enumerated, celltypes)
             {
                 if *cell_type == CellType::Polyhedron {
                     len += 1;
                 }
-                println!("did some stuff");
+
                 for i in cell_type.nth_face_vertices(
                     cell_face_idx,
                     clump_idx,
@@ -482,7 +476,7 @@ impl<T: Real> Mesh<T> {
                 }
             }
         }
-        println!("ngon faces nth_face_vertices was called on: {}", len);
+
         // Transfer face vertex attributes from tetmesh.
         let mut face_vertex_attributes: AttribDict<FaceVertexIndex> = AttribDict::new();
 

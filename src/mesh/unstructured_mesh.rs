@@ -141,12 +141,7 @@ impl CellType {
                     end += face_size as usize;
                     i += 1;
                 }
-                println!(
-                    "Range: {:?}, full_poly: {:?}, idx: {}",
-                    start..end,
-                    &verts_count,
-                    nth_face
-                );
+
                 (start..end).collect()
             }
         }
@@ -233,11 +228,6 @@ impl CellType {
                             );
                         }
                         _ => {
-                            // println!(
-                            //     "executing on polyhedronc cell; faces: {:?}, face: {:?}",
-                            //     poly_faces[clump_idx].len(),
-                            //     &face
-                            // );
                             ngon_handler(start as usize, &face);
                         }
                     }
@@ -277,7 +267,7 @@ pub struct Mesh<T: Real> {
     /// face sizes.
     ///
     /// ie: [[],[3, 3, 3, 3], [3, 3, 3, 3]] if the first clump in indices
-    /// is not a polyhedron, and the next two are each a polyhedra with 4 triangle faces
+    /// is not a polyhedron, and the next two are each polyhedra with 4 triangle faces
     pub polyhedra_face_counts: Chunked<Vec<u16>>,
 
     /// Vertex attributes.
