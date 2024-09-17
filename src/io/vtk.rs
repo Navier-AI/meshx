@@ -525,9 +525,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         points,
                         cells:
                             model::Cells {
-                                cell_verts,
-                                types,
-                                faces,
+                                cell_verts, types, ..
                             },
                         data,
                     } = piece
@@ -733,9 +731,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         points,
                         cells:
                             model::Cells {
-                                cell_verts,
-                                types,
-                                faces,
+                                cell_verts, types, ..
                             },
                         data,
                     } = piece
@@ -819,9 +815,7 @@ impl<T: Real> MeshExtractor<T> for model::Vtk {
                         points,
                         cells:
                             model::Cells {
-                                cell_verts,
-                                types,
-                                faces,
+                                cell_verts, types, ..
                             },
                         data,
                     } = piece
@@ -1381,6 +1375,7 @@ mod tests {
                         vertices: vec![4, 1, 3, 2, 5, 4, 0, 4, 3, 6, 4, 9, 10, 8, 7],
                     },
                     types: vec![model::CellType::Tetra; 3],
+                    faces: None,
                 },
                 data: model::Attributes {
                     point: vec![
@@ -1585,6 +1580,7 @@ mod tests {
                 cells: model::Cells {
                     cell_verts: cell_verts.clone(),
                     types: vec![model::CellType::Polygon; cell_verts.num_cells()],
+                    faces: None,
                 },
                 data,
             }),
@@ -1685,6 +1681,7 @@ mod tests {
                 cells: model::Cells {
                     cell_verts: cell_verts.clone(),
                     types: vec![CellType::Polygon, CellType::Polygon, CellType::PolyLine],
+                    faces: None,
                 },
                 data: model::Attributes {
                     point: data.point,

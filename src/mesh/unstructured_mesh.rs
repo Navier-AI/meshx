@@ -12,7 +12,6 @@ use crate::mesh::topology::*;
 use crate::mesh::vertex_positions::VertexPositions;
 use crate::utils::slice::apply_permutation_with_seen;
 use crate::Real;
-use ahash::{HashMap, HashMapExt};
 use flatk::{Chunked, ClumpedView, GetOffset, IntoValues, Offsets, Set, View, ViewMut};
 use std::convert::TryFrom;
 
@@ -31,6 +30,7 @@ pub enum CellType {
 
 impl CellType {
     /// Returns the number of vertices referenced by this cell type.
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_verts(&self) -> usize {
         match self {
             CellType::Line => 2,
@@ -40,10 +40,10 @@ impl CellType {
             CellType::Pyramid => 5,
             CellType::Hexahedron => 8,
             CellType::Wedge => 6,
-            /// Note, this must be explicitly handled by using the polyhedron_face_counts
             CellType::Polyhedron => 0,
         }
     }
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_tri_faces(&self) -> usize {
         match self {
             CellType::Line => 0,
@@ -58,6 +58,7 @@ impl CellType {
             }
         }
     }
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_quad_faces(&self) -> usize {
         match self {
             CellType::Line => 0,
@@ -108,29 +109,20 @@ impl CellType {
             CellType::Line => vec![],
             CellType::Triangle => vec![],
             CellType::Quad => vec![],
-            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face]
-                .iter()
-                .copied()
-                .collect(),
+            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face].to_vec(),
             CellType::Pyramid => {
                 if let Some(face) = CellType::PYRAMID_TRIS.get(nth_face) {
-                    face.iter().copied().collect()
+                    face.to_vec()
                 } else {
-                    CellType::PYRAMID_QUAD.iter().copied().collect()
+                    CellType::PYRAMID_QUAD.to_vec()
                 }
             }
-            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face]
-                .iter()
-                .copied()
-                .collect(),
+            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face].to_vec(),
             CellType::Wedge => {
                 if let Some(face) = CellType::WEDGE_TRIS.get(nth_face) {
-                    face.iter().copied().collect()
+                    face.to_vec()
                 } else {
-                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()]
-                        .iter()
-                        .copied()
-                        .collect()
+                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()].to_vec()
                 }
             }
             // Note that instead of passing an index that refers to the nth face, we instead pass

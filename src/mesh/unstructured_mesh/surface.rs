@@ -8,7 +8,7 @@ use crate::topology::{
 };
 use ahash::AHashMap as HashMap;
 use ahash::RandomState;
-use flatk::{Chunked, Set};
+use flatk::Chunked;
 
 /// A polygon with N sides, whose indices are sorted
 #[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -53,17 +53,17 @@ impl fmt::Debug for Polygon {
 /// Consider any permutation of the triangle to be equivalent to the original.
 impl PartialEq for Polygon {
     fn eq(&self, other: &Polygon) -> bool {
-        if other.ngon.clone().sort_unstable() == self.ngon.clone().sort_unstable() {
-            true
-        } else {
-            false
-        }
+        let mut a = other.ngon.clone();
+        a.sort_unstable();
+        let mut b = self.ngon.clone();
+        b.sort_unstable();
+        a == b
     }
 }
 
 /// A utility function to index a slice using the input ngon indices, creating a new array of
 /// corresponding entries of the slice.
-fn ngon_at<T: Copy>(slice: &[T], ngon: &Vec<usize>) -> Vec<T> {
+fn ngon_at<T: Copy>(slice: &[T], ngon: &[usize]) -> Vec<T> {
     ngon.iter().map(|v| slice[*v]).collect::<Vec<_>>()
 }
 
@@ -165,6 +165,7 @@ impl<T: Real> Mesh<T> {
     /// `Mesh`.
     ///
     /// This function assumes that the given Mesh is a manifold.
+    #[allow(clippy::type_complexity)]
     fn surface_ngon_set<'a>(
         indices: &flatk::Clumped<Vec<usize>>,
         types: impl std::iter::ExactSizeIterator<Item = &'a CellType> + Clone,
@@ -229,7 +230,7 @@ impl<T: Real> Mesh<T> {
                     let cell = &cells[0];
                     // println!("cell: {:?} ngon: {:?}", cell, ngon);
                     let face = Polygon {
-                        ngon: ngon_at(&cell, ngon),
+                        ngon: ngon_at(cell, ngon),
                         // Note that this index is the "Chunk" index, because each ngon gets its own chunk
                         cell_idx: idx,
                         start_idx: face_start_index as u16,
@@ -317,7 +318,7 @@ impl<T: Real> Mesh<T> {
         }
 
         let mut len = 0;
-        for (edges, face) in ngons
+        for (_, face) in ngons
             .into_iter()
             .flat_map(|(edges, faces)| faces.into_iter().map(move |(_, face)| (edges, face)))
             .filter(ngon_filter)
@@ -374,6 +375,7 @@ impl<T: Real> Mesh<T> {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn surface_trimesh_with_mapping_and_filter(
         &self,
         original_vertex_index_name: Option<&str>,
@@ -585,7 +587,11 @@ mod tests {
 
         let mesh = Mesh::from_cells_and_types(points, cells, types);
 
-        let (triangles, quads) = Mesh::<f64>::surface_ngon_set(&mesh.indices, mesh.types.iter());
+        let (triangles, quads, ngons) = Mesh::<f64>::surface_ngon_set(
+            &mesh.indices,
+            mesh.types.iter(),
+            &mesh.polyhedra_face_counts,
+        );
 
         triangles
             .iter()
