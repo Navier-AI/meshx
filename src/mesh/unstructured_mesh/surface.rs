@@ -311,7 +311,6 @@ impl<T: Real> Mesh<T> {
             cell_types.push(face.cell_type);
         }
 
-        let mut len = 0;
         for (_, face) in ngons
             .into_iter()
             .flat_map(|(edges, faces)| faces.into_iter().map(move |(_, face)| (edges, face)))
@@ -322,13 +321,7 @@ impl<T: Real> Mesh<T> {
             cell_indices.push(face.cell_idx);
             cell_face_indices.push(face.start_idx as usize);
             cell_types.push(face.cell_type);
-            if face.cell_type != CellType::Polyhedron {
-                panic!()
-            }
-            len += 1;
         }
-
-        println!("ngon faces extracted!!: {}", len);
 
         (
             vertices,
