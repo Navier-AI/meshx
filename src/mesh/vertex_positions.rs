@@ -11,6 +11,7 @@ use crate::Real;
 use std::slice::{Iter, IterMut};
 
 /// An "intrinsic" trait for accessing vertex positions on a mesh.
+///
 /// This trait can be implemented automatically by deriving the virtual "Intrinsic" trait and
 /// taggin the field with the vertex positions field with the `#[intrinsic(VertexPositions)]`
 /// attribute. Make sure that `VertexPositions` is in scope, or specify the path in the argument to

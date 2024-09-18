@@ -204,6 +204,7 @@ impl<T: Real> Merge for Mesh<T> {
             vertex_positions: mut other_vertex_positions,
             indices: other_indices,
             types: other_types,
+            polyhedra_face_counts: other_polyhedra_face_counts,
             vertex_attributes: other_vertex_attributes,
             cell_attributes: other_cell_attributes,
             cell_vertex_attributes: other_cell_vertex_attributes,
@@ -214,6 +215,7 @@ impl<T: Real> Merge for Mesh<T> {
             .as_mut_vec()
             .append(other_vertex_positions.as_mut_vec());
         self.types.extend(other_types.iter());
+
         self.indices
             .data
             .extend(other_indices.data.iter().map(|&i| i + self_num_vertices));
@@ -225,6 +227,14 @@ impl<T: Real> Merge for Mesh<T> {
             .chunks
             .chunk_offsets
             .extend(other_indices.chunks.chunk_offsets.iter());
+
+        self.polyhedra_face_counts
+            .data
+            .extend(other_polyhedra_face_counts.data.iter());
+
+        self.polyhedra_face_counts
+            .chunks
+            .extend(other_polyhedra_face_counts.chunks.iter());
 
         // Transfer attributes
         merge_attribute_dicts(
@@ -282,6 +292,7 @@ impl<T: Real> Mesh<T> {
         let mut vertex_positions = Vec::new();
         let mut indices = Clumped::from_clumped_offsets(vec![0], vec![0], vec![]);
         let mut types = Vec::new();
+        let mut polyhedra_face_counts = Chunked::from_sizes(vec![], vec![]);
         let mut vertex_attributes = AttribDict::new();
         let mut cell_attributes = AttribDict::new();
         let mut cell_vertex_attributes = AttribDict::new();
@@ -339,12 +350,21 @@ impl<T: Real> Mesh<T> {
                 .chunks
                 .chunk_offsets
                 .extend(mesh.indices.chunks.chunk_offsets.iter());
+
+            polyhedra_face_counts
+                .data
+                .extend(mesh.polyhedra_face_counts.data.iter());
+
+            polyhedra_face_counts
+                .chunks
+                .extend(mesh.polyhedra_face_counts.chunks.iter());
         }
 
         Ok(Self {
             vertex_positions: IntrinsicAttribute::from_vec(vertex_positions),
             indices,
             types,
+            polyhedra_face_counts,
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,

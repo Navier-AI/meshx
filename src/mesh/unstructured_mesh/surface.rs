@@ -8,6 +8,64 @@ use crate::topology::{
 };
 use ahash::AHashMap as HashMap;
 use ahash::RandomState;
+use flatk::Chunked;
+
+/// A polygon with N sides, whose indices are sorted
+#[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub struct SortedNgon {
+    // Unfortinately need to use a vec because there is no upper limit on the ngon size
+    // in vtk
+    pub sorted_indices: Vec<usize>,
+}
+
+impl SortedNgon {
+    fn new(indices: Vec<usize>) -> Self {
+        let mut indices = indices.clone();
+        indices.sort();
+        SortedNgon {
+            sorted_indices: indices,
+        }
+    }
+}
+
+/// A triangle face of a tetrahedron within a `TetMesh`.
+#[derive(Clone, Eq)]
+pub struct Polygon {
+    /// Vertex indices in the source mesh forming this face.
+    pub ngon: Vec<usize>,
+    /// Index of the corresponding cell within the source tetmesh.
+    pub cell_idx: usize,
+    /// Starting idx of the face within the cell
+    pub start_idx: u16,
+    pub cell_type: CellType,
+}
+
+impl fmt::Debug for Polygon {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Face {{ tri: {:?}, cell_index: {}, face_start_index: {}, cell_type: {:?} }}",
+            self.ngon, self.cell_idx, self.start_idx, self.cell_type
+        )
+    }
+}
+
+/// Consider any permutation of the triangle to be equivalent to the original.
+impl PartialEq for Polygon {
+    fn eq(&self, other: &Polygon) -> bool {
+        let mut a = other.ngon.clone();
+        a.sort_unstable();
+        let mut b = self.ngon.clone();
+        b.sort_unstable();
+        a == b
+    }
+}
+
+/// A utility function to index a slice using the input ngon indices, creating a new array of
+/// corresponding entries of the slice.
+fn ngon_at<T: Copy>(slice: &[T], ngon: &[usize]) -> Vec<T> {
+    ngon.iter().map(|v| slice[*v]).collect::<Vec<_>>()
+}
 
 /// A quad with sorted vertices
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -107,10 +165,16 @@ impl<T: Real> Mesh<T> {
     /// `Mesh`.
     ///
     /// This function assumes that the given Mesh is a manifold.
+    #[allow(clippy::type_complexity)]
     fn surface_ngon_set<'a>(
         indices: &flatk::Clumped<Vec<usize>>,
         types: impl std::iter::ExactSizeIterator<Item = &'a CellType> + Clone,
-    ) -> (HashMap<SortedTri, TetFace>, HashMap<SortedQuad, QuadFace>) {
+        poly_faces: &Chunked<Vec<u16>>,
+    ) -> (
+        HashMap<SortedTri, TetFace>,
+        HashMap<SortedQuad, QuadFace>,
+        HashMap<u16, HashMap<SortedNgon, Polygon>>,
+    ) {
         let mut triangles: HashMap<SortedTri, TetFace> = {
             // This will make surfacing tetmeshes deterministic.
             let hash_builder = RandomState::with_seeds(7, 47, 2377, 719);
@@ -121,8 +185,11 @@ impl<T: Real> Mesh<T> {
             HashMap::with_hasher(hash_builder)
         };
 
-        for (cells, cell_type) in indices.clump_iter().zip(types) {
+        let mut poly_maps: HashMap<u16, HashMap<SortedNgon, Polygon>> = HashMap::default();
+
+        for (idx, (cells, cell_type)) in indices.clump_iter().zip(types).enumerate() {
             cell_type.enumerate_faces(
+                // The three closures are essentially the same, just removing all duplicates.
                 |face_index, tri_face| {
                     for (i, cell) in cells.iter().enumerate() {
                         let face = TetFace {
@@ -155,10 +222,31 @@ impl<T: Real> Mesh<T> {
                         }
                     }
                 },
+                |face_start_index, ngon| {
+                    let cell = &cells[0];
+                    let face = Polygon {
+                        ngon: ngon_at(cell, ngon),
+                        // Note that this index is the "Chunk" index, because each ngon gets its own chunk
+                        cell_idx: idx,
+                        start_idx: face_start_index as u16,
+                        cell_type: *cell_type,
+                    };
+
+                    let key = SortedNgon::new(face.ngon.clone());
+                    let ngons = poly_maps.entry(ngon.len() as u16).or_insert({
+                        let hash_builder = RandomState::with_seeds(7, 47, 2377, 719);
+                        HashMap::with_hasher(hash_builder)
+                    });
+                    if ngons.remove(&key).is_none() {
+                        ngons.insert(key, face);
+                    }
+                },
+                idx,
+                poly_faces,
             );
         }
 
-        (triangles, quads)
+        (triangles, quads, poly_maps)
     }
 
     /// Extract the surface ngon information of the `Mesh`.
@@ -172,10 +260,12 @@ impl<T: Real> Mesh<T> {
     ///
     /// (vertices, offsets, cells, cell_face_indices, cell_types)
     #[allow(clippy::type_complexity)]
-    pub fn surface_ngon_data<F1, F2>(
+    pub fn surface_ngon_data<F1, F2, F3>(
         &self,
         tri_filter: F1,
         quad_filter: F2,
+        ngon_filter: F3,
+        poly_faces: &flatk::Chunked<Vec<u16>>,
     ) -> (
         Vec<usize>,
         Vec<usize>,
@@ -186,10 +276,13 @@ impl<T: Real> Mesh<T> {
     where
         F1: FnMut(&TetFace) -> bool,
         F2: FnMut(&QuadFace) -> bool,
+        F3: FnMut(&(u16, Polygon)) -> bool,
     {
-        let (triangles, quads) = Self::surface_ngon_set(&self.indices, self.types.iter());
+        let (triangles, quads, ngons) =
+            Self::surface_ngon_set(&self.indices, self.types.iter(), poly_faces);
 
-        let total = triangles.len() + quads.len();
+        let total = triangles.len() + quads.len() + ngons.iter().map(|m| m.1.len()).sum::<usize>();
+
         let mut vertices = Vec::new();
         let mut offsets = Vec::with_capacity(total + 1);
         let mut cell_indices = Vec::with_capacity(total);
@@ -218,6 +311,18 @@ impl<T: Real> Mesh<T> {
             cell_types.push(face.cell_type);
         }
 
+        for (_, face) in ngons
+            .into_iter()
+            .flat_map(|(edges, faces)| faces.into_iter().map(move |(_, face)| (edges, face)))
+            .filter(ngon_filter)
+        {
+            vertices.extend_from_slice(&face.ngon);
+            offsets.push(vertices.len());
+            cell_indices.push(face.cell_idx);
+            cell_face_indices.push(face.start_idx as usize);
+            cell_types.push(face.cell_type);
+        }
+
         (
             vertices,
             offsets,
@@ -228,7 +333,15 @@ impl<T: Real> Mesh<T> {
     }
 
     pub fn surface_mesh(&self) -> PolyMesh<T> {
-        self.surface_trimesh_with_mapping_and_filter(None, None, None, None, |_| true, |_| true)
+        self.surface_trimesh_with_mapping_and_filter(
+            None,
+            None,
+            None,
+            None,
+            |_| true,
+            |_| true,
+            |_| true,
+        )
     }
 
     pub fn surface_trimesh_with_mapping(
@@ -245,9 +358,11 @@ impl<T: Real> Mesh<T> {
             original_tet_face_index_name,
             |_| true,
             |_| true,
+            |_| true,
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn surface_trimesh_with_mapping_and_filter(
         &self,
         original_vertex_index_name: Option<&str>,
@@ -256,10 +371,16 @@ impl<T: Real> Mesh<T> {
         original_tet_face_index_name: Option<&str>,
         tri_filter: impl FnMut(&TetFace) -> bool,
         quad_filter: impl FnMut(&QuadFace) -> bool,
+        ngon_filter: impl FnMut(&(u16, Polygon)) -> bool,
     ) -> PolyMesh<T> {
-        // Get the surface topology of this tetmesh.
-        let (mut topo, mut offsets, cell_indices, cell_face_indices, cell_types) =
-            self.surface_ngon_data(tri_filter, quad_filter);
+        // Get the surface topology.
+        let (mut topo, mut offsets, cell_indices, cell_face_indices, cell_types) = self
+            .surface_ngon_data(
+                tri_filter,
+                quad_filter,
+                ngon_filter,
+                &self.polyhedra_face_counts,
+            );
 
         // Record which vertices we have already handled.
         let mut seen = vec![-1isize; self.num_vertices()];
@@ -312,17 +433,25 @@ impl<T: Real> Mesh<T> {
             );
         }
 
+        assert_eq!(cell_indices.len(), cell_face_indices.len());
+        assert_eq!(cell_face_indices.len(), cell_types.len());
+
         // Mapping from face vertex index to its original tet vertex index.
         let mut tet_vertex_index = Vec::new();
         if original_tet_vertex_index_name.is_some() {
             tet_vertex_index.reserve(topo.len());
-            for (&cell_idx, &cell_face_idx, cell_type) in cell_indices
+            for (&cell_idx, &cell_face_idx, cell_type, clump_idx) in cell_indices
                 .iter()
                 .zip(cell_face_indices.iter())
-                .zip(cell_types.iter())
-                .map(|((a, b), c)| (a, b, c))
+                .zip(cell_types.iter().enumerate())
+                .map(|((a, b), (i, c))| (a, b, c, i))
+            // (cell_indices, cell_face_indices), (enumerated, celltypes)
             {
-                for &i in cell_type.nth_face_vertices(cell_face_idx) {
+                for i in cell_type.nth_face_vertices(
+                    cell_face_idx,
+                    clump_idx,
+                    &self.polyhedra_face_counts,
+                ) {
                     tet_vertex_index.push(self.cell_vertex(cell_idx, i));
                 }
             }
@@ -335,13 +464,17 @@ impl<T: Real> Mesh<T> {
             face_vertex_attributes.insert(
                 name.to_string(),
                 attrib.promote_with(|new, old| {
-                    for (&cell_idx, &cell_face_idx, cell_type) in cell_indices
+                    for (&cell_idx, &cell_face_idx, cell_type, clump_idx) in cell_indices
                         .iter()
                         .zip(cell_face_indices.iter())
-                        .zip(cell_types.iter())
-                        .map(|((a, b), c)| (a, b, c))
+                        .zip(cell_types.iter().enumerate())
+                        .map(|((a, b), (i, c))| (a, b, c, i))
                     {
-                        for &i in cell_type.nth_face_vertices(cell_face_idx) {
+                        for i in cell_type.nth_face_vertices(
+                            cell_face_idx,
+                            clump_idx,
+                            &self.polyhedra_face_counts,
+                        ) {
                             let cell_vtx_idx = self.cell_vertex(cell_idx, i);
                             new.push_cloned(old.get(Index::from(cell_vtx_idx).unwrap()));
                         }
@@ -428,7 +561,11 @@ mod tests {
 
         let mesh = Mesh::from_cells_and_types(points, cells, types);
 
-        let (triangles, quads) = Mesh::<f64>::surface_ngon_set(&mesh.indices, mesh.types.iter());
+        let (triangles, quads, ngons) = Mesh::<f64>::surface_ngon_set(
+            &mesh.indices,
+            mesh.types.iter(),
+            &mesh.polyhedra_face_counts,
+        );
 
         triangles
             .iter()

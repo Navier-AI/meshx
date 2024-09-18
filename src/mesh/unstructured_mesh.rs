@@ -12,8 +12,8 @@ use crate::mesh::topology::*;
 use crate::mesh::vertex_positions::VertexPositions;
 use crate::utils::slice::apply_permutation_with_seen;
 use crate::Real;
-use ahash::{HashMap, HashMapExt};
 use flatk::{Chunked, ClumpedView, GetOffset, IntoValues, Offsets, Set, View, ViewMut};
+use std::convert::TryFrom;
 
 /// A marker for the type of cell contained in a Mesh.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -25,10 +25,12 @@ pub enum CellType {
     Pyramid,
     Hexahedron,
     Wedge,
+    Polyhedron,
 }
 
 impl CellType {
     /// Returns the number of vertices referenced by this cell type.
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_verts(&self) -> usize {
         match self {
             CellType::Line => 2,
@@ -38,8 +40,10 @@ impl CellType {
             CellType::Pyramid => 5,
             CellType::Hexahedron => 8,
             CellType::Wedge => 6,
+            CellType::Polyhedron => 0,
         }
     }
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_tri_faces(&self) -> usize {
         match self {
             CellType::Line => 0,
@@ -49,8 +53,12 @@ impl CellType {
             CellType::Pyramid => 4,
             CellType::Hexahedron => 0,
             CellType::Wedge => 2,
+            CellType::Polyhedron => {
+                panic!()
+            }
         }
     }
+    /// Note, polyhedron types must be explicitly handled by using the polyhedron_face_counts
     pub fn num_quad_faces(&self) -> usize {
         match self {
             CellType::Line => 0,
@@ -60,6 +68,9 @@ impl CellType {
             CellType::Pyramid => 1,
             CellType::Hexahedron => 6,
             CellType::Wedge => 3,
+            CellType::Polyhedron => {
+                panic!()
+            }
         }
     }
 
@@ -88,26 +99,50 @@ impl CellType {
 
     /// Utility function for getting the cell's nth face's vertices.
     /// nth as defined by [`enumerate_faces`]
-    pub fn nth_face_vertices(&self, nth_face: usize) -> std::slice::Iter<usize> {
+    pub fn nth_face_vertices(
+        &self,
+        nth_face: usize,
+        clump_idx: usize,
+        poly_faces: &Chunked<Vec<u16>>,
+    ) -> Vec<usize> {
         match self {
-            CellType::Line => CellType::EMPTY.iter(),
-            CellType::Triangle => CellType::EMPTY.iter(),
-            CellType::Quad => CellType::EMPTY.iter(),
-            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face].iter(),
+            CellType::Line => vec![],
+            CellType::Triangle => vec![],
+            CellType::Quad => vec![],
+            CellType::Tetrahedron => CellType::TETRAHEDRON_FACES[nth_face].to_vec(),
             CellType::Pyramid => {
                 if let Some(face) = CellType::PYRAMID_TRIS.get(nth_face) {
-                    face.iter()
+                    face.to_vec()
                 } else {
-                    CellType::PYRAMID_QUAD.iter()
+                    CellType::PYRAMID_QUAD.to_vec()
                 }
             }
-            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face].iter(),
+            CellType::Hexahedron => CellType::HEXAHEDRON_FACES[nth_face].to_vec(),
             CellType::Wedge => {
                 if let Some(face) = CellType::WEDGE_TRIS.get(nth_face) {
-                    face.iter()
+                    face.to_vec()
                 } else {
-                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()].iter()
+                    CellType::WEDGE_QUADS[nth_face - CellType::WEDGE_TRIS.len()].to_vec()
                 }
+            }
+            // Note that instead of passing an index that refers to the nth face, we instead pass
+            // an offset that *indexes* to the start of that face. This is more efficient
+            // then trying to deal with an nth face when the faces have different numbers of vertices.
+            CellType::Polyhedron => {
+                // This could probably be better, but the only way around it would be to store offsets
+                // in the chunked vecs instead of face counts.
+                let verts_count = &poly_faces[clump_idx];
+                let mut start = 0;
+                let mut end = 0;
+                let mut i = 0;
+                while end <= nth_face {
+                    let face_size = verts_count[i];
+                    start = end;
+                    end += face_size as usize;
+                    i += 1;
+                }
+
+                (start..end).collect()
             }
         }
     }
@@ -128,10 +163,21 @@ impl CellType {
     /// * `quad_handler` - A closure that handles quadrilateral faces. It receives two arguments:
     ///   - `usize`: The index of the quadrilateral face.
     ///   - `&[usize; 4]`: A reference to an array of 4 vertex indices defining the quadrilateral face.
-    pub fn enumerate_faces<F, G>(&self, mut tri_handler: F, mut quad_handler: G)
-    where
+    ///
+    /// * `ngon_handler` - A closure that handles quadrilateral faces. It receives two arguments:
+    ///   - `usize`: The start index of the face.
+    ///   - `&Vec<usize>`: A reference to an array of 4 vertex indices defining the ngon's face.
+    pub fn enumerate_faces<F, G, H>(
+        &self,
+        mut tri_handler: F,
+        mut quad_handler: G,
+        mut ngon_handler: H,
+        clump_idx: usize,
+        poly_faces: &Chunked<Vec<u16>>,
+    ) where
         F: FnMut(usize, &[usize; 3]),
         G: FnMut(usize, &[usize; 4]),
+        H: FnMut(usize, &Vec<usize>),
     {
         match self {
             CellType::Line | CellType::Triangle | CellType::Quad => {}
@@ -159,6 +205,35 @@ impl CellType {
                     quad_handler(quad_index + Self::WEDGE_TRIS.len(), face_vertices);
                 }
             }
+            // Note that instead of passing an index that refers to the nth face, we instead pass
+            // an offset that *indexes* to the start of that face. This is more efficient
+            // then trying to deal with an nth face when the faces have different numbers of vertices.
+            CellType::Polyhedron => {
+                let mut start = 0;
+                for verts_in_face in poly_faces[clump_idx].iter() {
+                    let face = (start..start + verts_in_face)
+                        .map(|x| x as usize)
+                        .collect::<Vec<usize>>();
+                    match face.len() {
+                        3 => {
+                            tri_handler(
+                                start as usize,
+                                <&[usize; 3]>::try_from(face.as_slice()).unwrap(),
+                            );
+                        }
+                        4 => {
+                            quad_handler(
+                                start as usize,
+                                <&[usize; 4]>::try_from(face.as_slice()).unwrap(),
+                            );
+                        }
+                        _ => {
+                            ngon_handler(start as usize, &face);
+                        }
+                    }
+                    start += verts_in_face;
+                }
+            }
         }
     }
 }
@@ -177,9 +252,24 @@ pub struct Mesh<T: Real> {
     /// Indices into `vertices`. Each chunk represents a cell, and cells
     /// can have an arbitrary number of referenced vertices. Each clump
     /// represents cells of the same kind.
+    ///
+    /// Each polyhedron CellType gets its own single item clump.
     pub indices: flatk::Clumped<Vec<usize>>,
     /// Types of cells, one for each clump in `indices`.
     pub types: Vec<CellType>,
+
+    /// Each chunk maps to a single clump in the indices Clumped vec.
+    ///
+    /// Every non-polyhedron cell type clump has a chunk of zero size
+    /// "stored" here.
+    ///
+    /// For the polyhedra clumps, a single chunk stores that polyhedrons
+    /// face sizes.
+    ///
+    /// ie: [[],[3, 3, 3, 3], [3, 3, 3, 3]] if the first clump in indices
+    /// is not a polyhedron, and the next two are each polyhedra with 4 triangle faces
+    pub polyhedra_face_counts: Chunked<Vec<u16>>,
+
     /// Vertex attributes.
     pub vertex_attributes: AttribDict<VertexIndex>,
     /// Cell attributes.
@@ -241,6 +331,7 @@ impl<T: Real> Mesh<T> {
         types: Vec<CellType>,
     ) -> Mesh<T> {
         assert_eq!(cells.len(), types.len());
+        assert!(!types.contains(&CellType::Polyhedron));
         let sizes: Vec<_> = types.iter().map(CellType::num_verts).collect();
         let counts: Vec<_> = sizes
             .iter()
@@ -250,10 +341,13 @@ impl<T: Real> Mesh<T> {
         let cells = cells.into_iter().flatten().collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -306,6 +400,24 @@ impl<T: Real> Mesh<T> {
         )
     }
 
+    /// Same as [`from_cells_counts_and_types`] but
+    /// allows cells/types to contain polyhedra
+    pub fn from_cells_counts_types_and_polyfaces(
+        verts: impl Into<Vec<[T; 3]>>,
+        cells: impl Into<Vec<usize>>,
+        counts: impl AsRef<[usize]>,
+        types: impl Into<Vec<CellType>>,
+        polyfaces: Chunked<Vec<u16>>,
+    ) -> Mesh<T> {
+        Self::from_cells_counts_types_and_polyfaces_impl(
+            verts.into(),
+            cells.into(),
+            counts.as_ref(),
+            types.into(),
+            polyfaces,
+        )
+    }
+
     // Non-generic implementation of the `from_cells_counts_and_types` method.
     fn from_cells_counts_and_types_impl(
         verts: Vec<[T; 3]>,
@@ -313,13 +425,47 @@ impl<T: Real> Mesh<T> {
         counts: &[usize],
         types: Vec<CellType>,
     ) -> Mesh<T> {
+        assert!(!types.contains(&CellType::Polyhedron));
         let sizes: Vec<_> = types.iter().map(CellType::num_verts).collect();
+        let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
+
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
+        Mesh {
+            vertex_positions: IntrinsicAttribute::from_vec(verts),
+            indices: clumped_indices,
+            types,
+            polyhedra_face_counts,
+            vertex_attributes: AttribDict::new(),
+            cell_attributes: AttribDict::new(),
+            cell_vertex_attributes: AttribDict::new(),
+            attribute_value_cache: AttribValueCache::with_hasher(Default::default()),
+        }
+    }
+
+    // Non-generic implementation of the `from_cells_counts_types_and_polyfaces` method.
+    fn from_cells_counts_types_and_polyfaces_impl(
+        verts: Vec<[T; 3]>,
+        cells: Vec<usize>,
+        counts: &[usize],
+        types: Vec<CellType>,
+        polyfaces: Chunked<Vec<u16>>,
+    ) -> Mesh<T> {
+        let sizes: Vec<_> = types
+            .iter()
+            .enumerate()
+            .map(|(idx, t)| match t {
+                CellType::Polyhedron => polyfaces[idx].iter().map(|c| *c as usize).sum(),
+                _ => t.num_verts(),
+            })
+            .collect();
         let clumped_indices = flatk::Clumped::from_sizes_and_counts(sizes, counts, cells);
 
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts: polyfaces,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -388,6 +534,7 @@ impl<T: Real> Mesh<T> {
         mut chunk_offsets: Vec<usize>,
         types: Vec<CellType>,
     ) -> Mesh<T> {
+        assert!(!types.contains(&CellType::Polyhedron));
         // Make sure offsets is correctly structured (always contains a 0 as required by `from_clumped_offsets` below).
         if chunk_offsets.is_empty() {
             chunk_offsets.push(0);
@@ -407,10 +554,13 @@ impl<T: Real> Mesh<T> {
             })
             .collect();
 
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: flatk::Clumped::from_clumped_offsets(chunk_offsets, offsets, cells),
             types,
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -487,7 +637,7 @@ impl<T: Real> Mesh<T> {
 
         let clumped_indices = flatk::Clumped::from(chunked_indices);
 
-        let types = clumped_indices
+        let types: Vec<_> = clumped_indices
             .chunks
             .chunk_offsets
             .iter()
@@ -495,10 +645,14 @@ impl<T: Real> Mesh<T> {
             .take(clumped_indices.chunks.num_clumps())
             .collect();
 
+        assert!(!types.contains(&CellType::Polyhedron));
+        let polyhedra_face_counts = Chunked::from_sizes(vec![0; types.len()], vec![]);
+
         Mesh {
             vertex_positions: IntrinsicAttribute::from_vec(verts),
             indices: clumped_indices,
             types,
+            polyhedra_face_counts,
             vertex_attributes: AttribDict::new(),
             cell_attributes: AttribDict::new(),
             cell_vertex_attributes: AttribDict::new(),
@@ -697,78 +851,6 @@ impl<T: Real> Mesh<T> {
 
         order
     }
-
-    /// Creates a new mesh with deduplicated vertices within a given epsilon.
-    ///
-    /// This function will create a new mesh where vertices that are closer than `epsilon` to each other
-    /// are merged, updating the indices accordingly, and adjusting all vertex-based attributes.
-    pub fn deduplicated_vertices(&self, epsilon: T) -> (Mesh<T>, usize)
-    where
-        T: Clone,
-    {
-        let mut unique_vertices: HashMap<[i32; 3], usize> = HashMap::new();
-        let mut new_indices: Vec<usize> = Vec::with_capacity(self.num_vertices());
-        let mut removed_count = 0;
-
-        let quantize = |x: T| num_traits::Float::round(x / epsilon).to_i32().unwrap();
-
-        for position in self.vertex_positions.iter() {
-            let quantized = [
-                quantize(position[0]),
-                quantize(position[1]),
-                quantize(position[2]),
-            ];
-
-            let new_index = unique_vertices.len();
-            let new_index = match unique_vertices.entry(quantized) {
-                Entry::Occupied(o) => {
-                    removed_count += 1;
-                    *o.get()
-                }
-                Entry::Vacant(v) => {
-                    v.insert(new_index);
-                    new_index
-                }
-            };
-
-            new_indices.push(new_index);
-        }
-
-        let mut new_cell_indices = self.indices.clone();
-        for cell in new_cell_indices.iter_mut() {
-            for index in cell.iter_mut() {
-                *index = new_indices[*index];
-            }
-        }
-
-        let mut new_positions = vec![[T::zero(); 3]; unique_vertices.len()];
-        for (old_index, &new_index) in new_indices.iter().enumerate() {
-            new_positions[new_index] = self.vertex_positions[old_index];
-        }
-
-        let mut vertex_attributes: AttribDict<VertexIndex> = AttribDict::new();
-
-        for (name, attrib) in self.attrib_dict::<VertexIndex>().iter() {
-            let new_attrib = attrib.duplicate_with_len(new_positions.len(), |mut new, old| {
-                for (&idx, val) in new_indices.iter().zip(old.iter()) {
-                    new.get_mut(idx).clone_from_other(val).unwrap();
-                }
-            });
-            vertex_attributes.insert(name.to_string(), new_attrib);
-        }
-
-        let new_mesh = Mesh {
-            vertex_positions: IntrinsicAttribute::from_vec(new_positions),
-            indices: new_cell_indices,
-            types: self.types.clone(),
-            vertex_attributes,
-            cell_attributes: self.cell_attributes.clone(),
-            cell_vertex_attributes: self.cell_vertex_attributes.clone(),
-            attribute_value_cache: self.attribute_value_cache.clone(),
-        };
-
-        (new_mesh, removed_count)
-    }
 }
 
 impl<T: Real> Default for Mesh<T> {
@@ -882,6 +964,7 @@ impl<T: Real> From<super::TriMesh<T>> for Mesh<T> {
                 flatk::Chunked3::from_array_vec(indices.into_vec()).into_inner(),
             ),
             types,
+            polyhedra_face_counts: Chunked::from_sizes(vec![0], vec![]),
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,
@@ -912,6 +995,7 @@ impl<T: Real> From<super::TetMesh<T>> for Mesh<T> {
                 flatk::Chunked4::from_array_vec(indices.into_vec()).into_inner(),
             ),
             types,
+            polyhedra_face_counts: Chunked::from_sizes(vec![0], vec![]),
             vertex_attributes,
             cell_attributes,
             cell_vertex_attributes,
